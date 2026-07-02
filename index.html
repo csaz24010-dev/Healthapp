@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>健康アプリ - 総合健康管理</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 80px;
+    }
+
+    /* ── Onboarding Overlay ─────────────────────────── */
+    .ob-overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(160deg, #ecfdf5 0%, #f0fdfa 45%, #eff6ff 100%);
+      z-index: 9999;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 16px 32px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .ob-overlay.ob-hidden { display: none; }
+
+    .ob-card {
+      background: #fff;
+      border-radius: 28px;
+      padding: 28px 24px 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 12px 56px rgba(5,150,105,0.12), 0 2px 12px rgba(0,0,0,0.06);
+      animation: obEntrance 0.45s cubic-bezier(0.22,1,0.36,1);
+      margin-top: auto;
+      margin-bottom: auto;
+      min-height: min-content;
+    }
+    @keyframes obEntrance {
+      from { opacity: 0; transform: translateY(28px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    /* Branding top */
+    .ob-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-bottom: 22px;
+    }
+    .ob-brand-name {
+      font-size: 1.15rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #10b981, #0d9488);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.03em;
+    }
+    .ob-brand-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981, #0d9488);
+    }
+
+    /* Step dots */
+    .ob-dots {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 28px;
+    }
+    .ob-dot {
+      height: 5px;
+      border-radius: 3px;
+      background: #e2e8f0;
+      transition: width 0.35s cubic-bezier(0.22,1,0.36,1), background 0.3s;
+      width: 18px;
+    }
+    .ob-dot.active  { width: 28px; background: #059669; }
+    .ob-dot.done    { background: #6ee7b7; width: 18px; }
+
+    /* Step icon / title */
+    .ob-icon { font-size: 2.8rem; text-align: center; margin-bottom: 8px; line-height: 1; }
+    .ob-title {
+      font-size: 1.2rem; font-weight: 800;
+      text-align: center; color: #0f172a;
+      margin-bottom: 6px; letter-spacing: -0.02em;
+    }
+    .ob-sub {
+      font-size: 0.78rem; color: #64748b;
+      text-align: center; line-height: 1.65;
+      margin-bottom: 20px;
+    }
+
+    /* Individual step panes */
+    .ob-step { animation: obStepIn 0.25s ease; }
+    .ob-step.ob-step-hidden { display: none; }
+    @keyframes obStepIn {
+      from { opacity: 0; transform: translateX(10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Navigation row */
+    .ob-nav { display: flex; gap: 10px; align-items: center; margin-top: 22px; }
+    .ob-back {
+      flex-shrink: 0;
+      background: #f1f5f9; border: none;
+      border-radius: 12px; padding: 11px 16px;
+      font-size: 0.8rem; font-weight: 600;
+      color: #475569; cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+      display: flex; align-items: center; gap: 5px;
+      white-space: nowrap;
+    }
+    .ob-back:hover { background: #e2e8f0; }
+    .ob-next {
+      flex: 1;
+      border: none; border-radius: 12px;
+      padding: 12px 18px;
+      background: linear-gradient(90deg, #059669 0%, #0d9488 100%);
+      color: #fff;
+      font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: filter 0.15s, transform 0.1s;
+      box-shadow: 0 2px 12px rgba(5,150,105,0.28);
+    }
+    .ob-next:hover  { filter: brightness(0.93); }
+    .ob-next:active { transform: scale(0.97); }
+
+    /* Ob goal buttons */
+    .ob-goal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+    .ob-goal-btn {
+      border: 2px solid #e2e8f0;
+      background: #fff; color: #475569;
+      padding: 14px 10px; border-radius: 14px;
+      font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: all 0.18s;
+      font-family: inherit; text-align: center;
+      line-height: 1.4;
+    }
+    .ob-goal-btn:hover { border-color: #10b981; color: #059669; background: #f0fdf4; }
+    .ob-goal-btn.selected {
+      background: linear-gradient(135deg, #059669, #0d9488);
+      color: #fff; border-color: #059669;
+      box-shadow: 0 0 0 3px rgba(5,150,105,0.2), 0 2px 8px rgba(5,150,105,0.2);
+    }
+
+    /* Allergy quick-pick chips */
+    .ob-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .ob-chip {
+      border: 1px solid #e2e8f0;
+      background: #f8fafc; color: #475569;
+      padding: 5px 12px; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .ob-chip:hover { border-color: #10b981; color: #059669; background: #f0fdf4; }
+    .ob-chip.ob-chip-active {
+      background: #ecfdf5; border-color: #6ee7b7; color: #065f46;
+    }
+
+    /* Ob input label */
+    .ob-label { font-size: 0.7rem; font-weight: 600; color: #64748b; display: block; margin-bottom: 5px; }
+
+    /* ── Layout shell ─────────────────────────────── */
+    .app-shell {
+      max-width: 448px;
+      margin: 0 auto;
+      background: #fff;
+      min-height: 100svh;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.10);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ───────────────────────────────────── */
+    .app-header {
+      background: linear-gradient(90deg, #10b981 0%, #0d9488 100%);
+      color: #fff;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .app-header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+    .app-header h1 .heart { color: #fca5a5; }
+    .header-streak { font-size: 0.72rem; color: #a7f3d0; margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .header-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%; background: #059669; border: none;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; transition: background 0.15s;
+    }
+    .header-avatar:hover { background: #047857; }
+
+    /* ── Main ─────────────────────────────────────── */
+    .app-main { flex: 1; padding: 16px; overflow-y: auto; }
+
+    /* ── Tab system ───────────────────────────────── */
+    .tab-content { display: none; }
+    .tab-content.active { display: flex; flex-direction: column; gap: 14px; }
+
+    /* ── Bottom nav ───────────────────────────────── */
+    .app-nav {
+      background: #fff; border-top: 1px solid #e2e8f0;
+      padding: 6px 8px;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      max-width: 448px; margin: 0 auto;
+      z-index: 50; box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+    }
+    .nav-btn {
+      background: none; border: none; cursor: pointer; color: #94a3b8;
+      font-size: 0.62rem; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 6px 4px; border-radius: 8px;
+      transition: color 0.15s, background 0.15s; gap: 3px;
+    }
+    .nav-btn i { font-size: 1rem; }
+    .nav-btn.active { color: #059669; }
+    .nav-btn:hover { background: #f0fdf4; color: #059669; }
+
+    /* ── Cards ────────────────────────────────────── */
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+    .card-dark { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; border-radius: 18px; padding: 16px; }
+    .card-ai { background: #fffbeb; border: 1px solid #fde68a; border-radius: 14px; padding: 14px; }
+    .card-sky { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; }
+    .card-indigo { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; }
+    .card-emerald { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 14px; padding: 14px; }
+    .card-teal { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 14px; padding: 14px; }
+
+    /* ── Profile banner (in profile tab) ─────────── */
+    .profile-banner {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-radius: 18px;
+      padding: 18px 18px 16px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-banner::after {
+      content: '';
+      position: absolute;
+      top: -20px; right: -20px;
+      width: 80px; height: 80px;
+      background: radial-gradient(circle, rgba(52,211,153,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .profile-avatar-large {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981, #0d9488);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 3px rgba(52,211,153,0.3);
+    }
+    .profile-banner-info { flex: 1; }
+    .profile-banner-name { font-size: 1rem; font-weight: 700; margin-bottom: 3px; }
+    .profile-banner-stats { font-size: 0.7rem; color: #94a3b8; }
+    .profile-banner-stats span { color: #a7f3d0; font-weight: 600; }
+    .profile-edit-hint { font-size: 0.65rem; color: #64748b; text-align: center; margin-top: -6px; }
+
+    /* ── Progress ─────────────────────────────────── */
+    .progress-label { font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-bottom: 8px; }
+    .progress-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px; }
+    .progress-big { font-size: 2rem; font-weight: 700; }
+    .progress-sub { font-size: 0.7rem; color: #94a3b8; }
+    .progress-track { width: 100%; background: #334155; border-radius: 999px; height: 10px; overflow: hidden; }
+    .progress-fill { height: 10px; border-radius: 999px; background: linear-gradient(90deg, #34d399, #2dd4bf); transition: width 0.5s ease; }
+
+    /* ── Grid ─────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Pills ────────────────────────────────────── */
+    .pill { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+    .pill-sky   { background: #bae6fd; color: #0369a1; }
+    .pill-indigo{ background: #c7d2fe; color: #4338ca; }
+    .pill-amber { background: #fde68a; color: #92400e; }
+    .pill-emerald { background: #a7f3d0; color: #065f46; }
+    .pill-teal  { background: #99f6e4; color: #134e4a; }
+
+    /* ── Stats ────────────────────────────────────── */
+    .stat-big { font-size: 1.6rem; font-weight: 700; margin: 6px 0 2px; }
+    .stat-unit { font-size: 0.72rem; }
+    .c-sky900   { color: #0c4a6e; } .c-sky700 { color: #0369a1; }
+    .c-indigo900{ color: #1e1b4b; } .c-indigo700 { color: #4338ca; }
+    .c-slate400 { color: #94a3b8; } .c-slate600 { color: #475569; } .c-slate700 { color: #334155; }
+    .c-amber800 { color: #92400e; } .c-amber900 { color: #78350f; }
+    .c-teal600  { color: #0d9488; }
+    .c-emerald600 { color: #059669; } .c-emerald800 { color: #065f46; }
+
+    /* ── Buttons ──────────────────────────────────── */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; transition: filter 0.15s, transform 0.1s; font-family: inherit; }
+    .btn:active { transform: scale(0.97); }
+    .btn:hover  { filter: brightness(0.93); }
+    .btn-sky   { background: #0ea5e9; color: #fff; font-size: 0.75rem; padding: 7px 12px; width: 100%; }
+    .btn-indigo{ background: #6366f1; color: #fff; font-size: 0.75rem; padding: 7px 12px; width: 100%; }
+    .btn-teal  { background: #0d9488; color: #fff; font-size: 0.75rem; padding: 7px 14px; }
+    .btn-emerald{ background: #059669; color: #fff; font-size: 0.85rem; padding: 9px 14px; width: 100%; }
+    .btn-dark  { background: #1e293b; color: #fff; font-size: 0.85rem; padding: 9px 14px; width: 100%; border-radius: 10px; }
+    .btn-ghost-sky { background: none; border: none; color: #0369a1; font-size: 0.75rem; cursor: pointer; text-decoration: underline; font-family: inherit; }
+    .btn-ghost-emerald { background: none; border: none; color: #059669; font-size: 0.75rem; cursor: pointer; text-decoration: underline; font-family: inherit; }
+    .btn-ghost-teal { background: none; border: none; color: #0d9488; font-size: 0.75rem; cursor: pointer; text-decoration: underline; font-family: inherit; }
+
+    /* Reroll */
+    .meal-reroll-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 12px; background: #fff;
+      border: 1.5px solid #fbbf24; color: #b45309;
+      font-size: 0.75rem; font-weight: 600;
+      padding: 7px 16px; border-radius: 999px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s; font-family: inherit;
+    }
+    .meal-reroll-btn:hover { background: #fef3c7; border-color: #f59e0b; }
+    .meal-reroll-btn:active { transform: scale(0.97); }
+
+    /* Goal buttons */
+    .goal-btn { border: 2px solid #e2e8f0; background: #fff; color: #475569; padding: 12px; border-radius: 12px; font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.18s ease; font-family: inherit; }
+    .goal-btn.selected { background: linear-gradient(135deg, #059669 0%, #0d9488 100%); color: #fff; border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.22), 0 2px 8px rgba(5,150,105,0.18); font-weight: 700; }
+    .goal-btn:not(.selected):hover { border-color: #10b981; color: #059669; background: #f0fdf4; }
+
+    /* Condition buttons */
+    .cond-btn { border: 1px solid #e2e8f0; background: #fff; padding: 8px 4px; border-radius: 10px; font-size: 0.72rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; font-family: inherit; }
+    .cond-btn:hover { background: #f0fdf4; border-color: #6ee7b7; }
+
+    /* ── Meal slot ────────────────────────────────── */
+    .meal-slot-card { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #fde68a; border-radius: 18px; padding: 18px 18px 14px; position: relative; overflow: hidden; }
+    .meal-slot-card::before { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; background: radial-gradient(circle at 100% 0%, rgba(251,191,36,0.18) 0%, transparent 70%); pointer-events: none; }
+    .meal-slot-header { display: flex; align-items: flex-start; gap: 10px; }
+    .meal-slot-icon { font-size: 1.6rem; line-height: 1; }
+    .meal-slot-body { flex: 1; }
+    .meal-slot-title { font-size: 1.05rem; font-weight: 700; color: #78350f; line-height: 1.35; margin-bottom: 5px; }
+    .meal-slot-desc { font-size: 0.78rem; color: #92400e; line-height: 1.6; }
+
+    /* ── Section headings ─────────────────────────── */
+    .section-title { font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+
+    /* ── Inputs ───────────────────────────────────── */
+    input[type="text"], input[type="number"], input[type="time"], select {
+      border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px;
+      font-size: 0.78rem; font-family: inherit; width: 100%;
+      background: #fff; color: #1e293b; outline: none; transition: border-color 0.15s;
+    }
+    input:focus, select:focus { border-color: #34d399; }
+
+    /* ── Utilities ────────────────────────────────── */
+    .row { display: flex; align-items: center; }
+    .row-between { display: flex; align-items: center; justify-content: space-between; }
+    .row-gap { display: flex; align-items: center; gap: 8px; }
+    .col-gap { display: flex; flex-direction: column; gap: 8px; }
+    .mt4 { margin-top: 4px; } .mt6 { margin-top: 6px; } .mt8 { margin-top: 8px; } .mt10 { margin-top: 10px; }
+    .mb4 { margin-bottom: 4px; } .mb6 { margin-bottom: 6px; } .mb8 { margin-bottom: 8px; }
+    .hidden { display: none !important; }
+    .text-xs { font-size: 0.72rem; } .text-sm { font-size: 0.82rem; } .text-center { text-align: center; }
+    .w-full { width: 100%; }
+    .grid-2-gap { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid-3-gap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .grid-4-gap { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+    .label { font-size: 0.7rem; color: #64748b; display: block; margin-bottom: 5px; }
+    .note  { font-size: 0.65rem; color: #94a3b8; margin-top: 4px; }
+
+    /* Analysis mini */
+    .analysis-mini { background: #fff; border-radius: 8px; padding: 8px 10px; font-size: 0.72rem; }
+    .analysis-mini span { font-weight: 700; }
+
+    /* Workout recs */
+    .workout-rec { padding: 10px; border-radius: 10px; font-size: 0.78rem; }
+    .workout-rec b { display: block; margin-bottom: 2px; }
+    .workout-rec-rose    { background: #fff1f2; }
+    .workout-rec-blue    { background: #eff6ff; }
+    .workout-rec-emerald { background: #ecfdf5; }
+    .workout-rec-amber   { background: #fffbeb; }
+
+    /* Remind row */
+    .remind-row { display: flex; justify-content: space-between; align-items: center; background: #f0f9ff; border-radius: 8px; padding: 8px 10px; font-size: 0.75rem; }
+
+    /* Border btn */
+    .btn-border { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 8px; font-size: 0.78rem; cursor: pointer; font-family: inherit; transition: background 0.12s; }
+    .btn-border:hover { background: #f8fafc; }
+
+    /* Icon */
+    .icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.15em; flex-shrink: 0; }
+    .nav-btn .icon { width: 1.15rem; height: 1.15rem; vertical-align: middle; }
+
+    /* Conflict note */
+    .conflict-note { font-size: 0.65rem; color: #d97706; margin-top: 4px; }
+
+    /* Spin */
+    @keyframes spin-once { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .spin-once { animation: spin-once 0.4s ease; }
+
+    /* Profile section divider */
+    .section-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     ONBOARDING OVERLAY (Day 0 demo: always shown on load)
+═══════════════════════════════════════════════ -->
+<div id="onboarding-overlay" class="ob-overlay ob-hidden">
+  <div class="ob-card">
+
+    <!-- Brand mark -->
+    <div class="ob-brand">
+      <div class="ob-brand-dot"></div>
+      <span class="ob-brand-name">健康アプリ</span>
+      <div class="ob-brand-dot"></div>
+    </div>
+
+    <!-- Progress dots -->
+    <div class="ob-dots">
+      <div class="ob-dot active"  id="ob-dot-0"></div>
+      <div class="ob-dot"         id="ob-dot-1"></div>
+      <div class="ob-dot"         id="ob-dot-2"></div>
+      <div class="ob-dot"         id="ob-dot-3"></div>
+    </div>
+
+    <!-- STEP 0 – Welcome + Age / Gender -->
+    <div id="ob-step-0" class="ob-step">
+      <div class="ob-icon">👋</div>
+      <div class="ob-title">はじめまして！</div>
+      <div class="ob-sub">あなた専用の健康管理を始めましょう。<br>まず基本的なプロフィールを教えてください。</div>
+      <div class="grid-2-gap">
+        <div>
+          <label class="ob-label">年齢</label>
+          <input type="number" id="ob-age" placeholder="例: 28" min="10" max="100">
+        </div>
+        <div>
+          <label class="ob-label">性別</label>
+          <select id="ob-gender">
+            <option value="male">男性</option>
+            <option value="female">女性</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1 – Height / Weight -->
+    <div id="ob-step-1" class="ob-step ob-step-hidden">
+      <div class="ob-icon">📏</div>
+      <div class="ob-title">身体情報</div>
+      <div class="ob-sub">より正確なアドバイスのために<br>体の情報を教えてください。</div>
+      <div class="grid-2-gap">
+        <div>
+          <label class="ob-label">身長 (cm)</label>
+          <input type="number" id="ob-height" placeholder="例: 170" min="100" max="250">
+        </div>
+        <div>
+          <label class="ob-label">体重 (kg)</label>
+          <input type="number" id="ob-weight" placeholder="例: 65" min="20" max="300">
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 – Allergies -->
+    <div id="ob-step-2" class="ob-step ob-step-hidden">
+      <div class="ob-icon">🌿</div>
+      <div class="ob-title">アレルギー情報</div>
+      <div class="ob-sub">食事提案を最適化するために<br>アレルギーがあれば教えてください。</div>
+      <div class="ob-chips mt8" id="ob-allergy-chips">
+        <button class="ob-chip" data-val="特になし" onclick="toggleAllergyChip('ob','特になし', this)">特になし</button>
+        <button class="ob-chip" data-val="卵" onclick="toggleAllergyChip('ob','卵', this)">卵</button>
+        <button class="ob-chip" data-val="乳製品" onclick="toggleAllergyChip('ob','乳製品', this)">乳製品</button>
+        <button class="ob-chip" data-val="小麦" onclick="toggleAllergyChip('ob','小麦', this)">小麦</button>
+        <button class="ob-chip" data-val="大豆" onclick="toggleAllergyChip('ob','大豆', this)">大豆</button>
+        <button class="ob-chip" data-val="魚" onclick="toggleAllergyChip('ob','魚', this)">魚</button>
+        <button class="ob-chip" data-val="甲殻類" onclick="toggleAllergyChip('ob','甲殻類', this)">甲殻類(えび・かに)</button>
+        <button class="ob-chip" data-val="貝類" onclick="toggleAllergyChip('ob','貝類', this)">貝類・いか</button>
+        <button class="ob-chip" data-val="そば" onclick="toggleAllergyChip('ob','そば', this)">そば</button>
+        <button class="ob-chip" data-val="落花生" onclick="toggleAllergyChip('ob','落花生', this)">落花生</button>
+        <button class="ob-chip" data-val="ナッツ類" onclick="toggleAllergyChip('ob','ナッツ類', this)">ナッツ類</button>
+        <button class="ob-chip" data-val="ごま" onclick="toggleAllergyChip('ob','ごま', this)">ごま</button>
+        <button class="ob-chip" data-val="牛肉" onclick="toggleAllergyChip('ob','牛肉', this)">牛肉</button>
+        <button class="ob-chip" data-val="豚肉" onclick="toggleAllergyChip('ob','豚肉', this)">豚肉</button>
+        <button class="ob-chip" data-val="鶏肉" onclick="toggleAllergyChip('ob','鶏肉', this)">鶏肉</button>
+        <button class="ob-chip" data-val="バナナ" onclick="toggleAllergyChip('ob','バナナ', this)">バナナ</button>
+      </div>
+      <input type="text" id="ob-allergy" placeholder="その他の備考（任意・表示用メモ）" class="mt8">
+      <p class="note mt6">✅ 選択したアレルギーを含む食事は自動的に提案から除外されます。</p>
+    </div>
+
+    <!-- STEP 3 – Goals -->
+    <div id="ob-step-3" class="ob-step ob-step-hidden">
+      <div class="ob-icon">🎯</div>
+      <div class="ob-title">フィットネス目標</div>
+      <div class="ob-sub">あなたが目指すものを選んでください。<br>複数選択できます。</div>
+      <div class="ob-goal-grid">
+        <button class="ob-goal-btn" id="obg-lose"    onclick="toggleObGoal('lose')">📉<br>減量</button>
+        <button class="ob-goal-btn" id="obg-gain"    onclick="toggleObGoal('gain')">📈<br>増量</button>
+        <button class="ob-goal-btn" id="obg-health"  onclick="toggleObGoal('health')">💚<br>健康維持</button>
+        <button class="ob-goal-btn" id="obg-stamina" onclick="toggleObGoal('stamina')">⚡<br>体力増加</button>
+      </div>
+      <p class="note mt6 text-center">あとでいつでも変更できます</p>
+    </div>
+
+    <!-- Navigation -->
+    <div class="ob-nav">
+      <button id="ob-back-btn" class="ob-back" onclick="obPrev()" style="display:none;">
+        <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        戻る
+      </button>
+      <button id="ob-next-btn" class="ob-next" onclick="obNext()">
+        次へ
+        <svg style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN APP SHELL
+═══════════════════════════════════════════ -->
+<div class="app-shell">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div>
+      <h1>
+        <svg class="icon heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2-7 4 14 3-7h3"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" opacity=".15" fill="currentColor" stroke="none"/></svg>
+        健康アプリ
+      </h1>
+      <p class="header-streak">継続日数: <span id="header-streak">0</span>日目 🔥</p>
+    </div>
+    <div class="header-right">
+      <span id="header-badge-container" style="display:flex;gap:4px;font-size:1.1rem;"></span>
+      <button class="header-avatar" onclick="switchTab('profile')">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8a7 7 0 0 1 14 0H5z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="app-main">
+
+    <!-- ── DASHBOARD ────────────────────────────── -->
+    <div id="tab-dashboard" class="tab-content active">
+
+      <div class="card-dark">
+        <p class="progress-label">今日のノルマ達成度</p>
+        <div class="progress-row">
+          <span class="progress-big" id="dash-progress-text">0%</span>
+          <span class="text-xs c-slate400" id="dash-norm-status">運動: 0 / 30 分</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="dash-progress-bar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card-sky">
+          <div id="water-input-section">
+            <span class="pill pill-sky">水分補給</span>
+            <div class="stat-big c-sky900" id="dash-water-text">0</div>
+            <div class="text-xs c-sky700" style="margin-bottom:8px;">/ 2000 ml</div>
+            <button class="btn btn-sky" onclick="addWater(250)"><svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></svg> 250ml飲む</button>
+          </div>
+          <div id="water-goal-done" class="hidden text-center" style="padding:8px 0;">
+            <span class="text-xs" style="font-weight:700;color:#0369a1;display:block;margin-bottom:4px;">🎉 目標達成！</span>
+            <button class="btn-ghost-sky" onclick="addWater(250)">さらに追加</button>
+          </div>
+        </div>
+        <div class="card-indigo">
+          <span class="pill pill-indigo">睡眠記録</span>
+          <div class="stat-big c-indigo900" id="dash-sleep-text">0</div>
+          <div class="text-xs c-indigo700" style="margin-bottom:8px;">時間</div>
+          <button class="btn btn-indigo" onclick="switchTab('sleep')">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 5a1 1 0 1 0-2 0v5.586l-2.707 2.707a1 1 0 1 0 1.414 1.414l3-3A1 1 0 0 0 13 13V7z" clip-rule="evenodd"/></svg>
+            設定
+          </button>
+        </div>
+      </div>
+
+      <div class="card-ai">
+        <div class="row-gap mb6" style="font-size:0.85rem;font-weight:700;color:#92400e;">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor" style="color:#f59e0b;"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2zm7 13l1.05 3.15L23 19l-2.95.85L19 23l-1.05-3.15L15 19l2.95-.85L19 15zm-14 0 1.05 3.15L9 19l-2.95.85L5 23l-1.05-3.15L1 19l2.95-.85L5 15z"/></svg>
+          AIパーソナル提案
+        </div>
+        <p id="ai-suggestion-text" class="text-xs c-amber900" style="line-height:1.65;">目標に合わせた習慣・方法がここに表示されます。</p>
+      </div>
+
+      <div class="card">
+        <div id="mental-picker">
+          <div class="section-title c-slate700">
+            <svg class="icon c-emerald600" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zM9 9a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm6 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-6.93 5.5a1 1 0 0 1 1.37-.37A4.98 4.98 0 0 0 12 15c.94 0 1.82-.26 2.56-.87a1 1 0 0 1 1.26 1.55A6.98 6.98 0 0 1 12 17a6.98 6.98 0 0 1-3.56-1c-.5-.3-.67-.95-.37-1.5z" clip-rule="evenodd"/></svg>
+            今日の体調・メンタル
+          </div>
+          <div class="grid-4-gap mt6">
+            <button onclick="setCondition('good')"   class="cond-btn">😊<br>絶好調</button>
+            <button onclick="setCondition('normal')" class="cond-btn">😐<br>普通</button>
+            <button onclick="setCondition('tired')"  class="cond-btn">🥱<br>疲労</button>
+            <button onclick="setCondition('bad')"    class="cond-btn">😰<br>不調</button>
+          </div>
+        </div>
+        <div id="mental-done" class="hidden row-between">
+          <span class="text-xs c-slate600">今日の体調を記録済み: <span id="mental-done-emoji"></span></span>
+          <button class="btn-ghost-emerald" onclick="editCondition()">変更する</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <button onclick="toggleWeightChart()" style="width:100%;background:none;border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit;">
+          <div class="section-title c-slate700" style="margin-bottom:0;">
+            <svg class="icon c-teal600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            体重の推移
+          </div>
+          <svg id="weight-chart-chevron" class="icon c-slate400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s;"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <div id="weight-chart-body" style="margin-top:10px;">
+          <canvas id="weightChart" style="width:100%;max-height:180px;"></canvas>
+        </div>
+      </div>
+    </div><!-- /dashboard -->
+
+    <!-- ── MEALS ─────────────────────────────────── -->
+    <div id="tab-meals" class="tab-content">
+      <div class="card-emerald" id="meals-allergy-banner" style="padding:10px 14px;">
+        <span class="text-xs c-emerald800">🌿 除外中のアレルゲン: <strong id="meals-allergy-list">特になし</strong></span>
+      </div>
+      <div class="meal-slot-card">
+        <span class="pill pill-amber" style="margin-bottom:10px;">朝食</span>
+        <div class="meal-slot-header">
+          <span class="meal-slot-icon">🌅</span>
+          <div class="meal-slot-body">
+            <div class="meal-slot-title" id="meal-title-breakfast">—</div>
+            <div class="meal-slot-desc"  id="meal-desc-breakfast">目標を設定すると、おすすめが表示されます。</div>
+          </div>
+        </div>
+        <button class="meal-reroll-btn" onclick="rerollMeal('breakfast')">
+          <svg id="reroll-icon-breakfast" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+          別の提案を見る
+        </button>
+      </div>
+
+      <div class="meal-slot-card">
+        <span class="pill pill-amber" style="margin-bottom:10px;">昼食</span>
+        <div class="meal-slot-header">
+          <span class="meal-slot-icon">☀️</span>
+          <div class="meal-slot-body">
+            <div class="meal-slot-title" id="meal-title-lunch">—</div>
+            <div class="meal-slot-desc"  id="meal-desc-lunch">目標を設定すると、おすすめが表示されます。</div>
+          </div>
+        </div>
+        <button class="meal-reroll-btn" onclick="rerollMeal('lunch')">
+          <svg id="reroll-icon-lunch" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+          別の提案を見る
+        </button>
+      </div>
+
+      <div class="meal-slot-card">
+        <span class="pill pill-amber" style="margin-bottom:10px;">夕食</span>
+        <div class="meal-slot-header">
+          <span class="meal-slot-icon">🌙</span>
+          <div class="meal-slot-body">
+            <div class="meal-slot-title" id="meal-title-dinner">—</div>
+            <div class="meal-slot-desc"  id="meal-desc-dinner">目標を設定すると、おすすめが表示されます。</div>
+          </div>
+        </div>
+        <button class="meal-reroll-btn" onclick="rerollMeal('dinner')">
+          <svg id="reroll-icon-dinner" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+          別の提案を見る
+        </button>
+      </div>
+
+      <div class="card col-gap">
+        <div class="section-title c-emerald600">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2v7.5A2.5 2.5 0 0 1 8.5 12H8v9a1 1 0 1 1-2 0v-9h-.5A2.5 2.5 0 0 1 3 9.5V2a1 1 0 0 1 2 0v6h1V2a1 1 0 0 1 2 0v6h1V2a1 1 0 0 1 2 0zm3-1a1 1 0 0 1 1 1c0 2.76.93 4.72 1.76 5.98.42.64.79 1.07 1.02 1.31.13.13.2.19.22.21V21a1 1 0 1 1-2 0V9.23A9.52 9.52 0 0 1 14 2a1 1 0 0 1 0-1z"/></svg>
+          実際に食べたものを登録
+        </div>
+        <select id="meal-type"><option value="朝食">朝食 🌅</option><option value="昼食">昼食 ☀️</option><option value="夕食">夕食 🌌</option></select>
+        <input type="text" id="meal-name" placeholder="メニュー名 (例: 焼き魚、ご飯)">
+        <div class="grid-2-gap">
+          <input type="number" id="meal-calories" placeholder="カロリー (kcal・任意)">
+          <select id="meal-trend">
+            <option value="balanced">バランスが良い</option>
+            <option value="high-carb">糖質・炭水化物多め</option>
+            <option value="high-fat">脂質・揚げ物多め</option>
+            <option value="high-protein">高タンパク質</option>
+          </select>
+        </div>
+        <button class="btn btn-emerald" onclick="addMeal()">登録する</button>
+        <p class="note">カロリーが分からない場合は空欄でも登録できます。</p>
+      </div>
+
+      <div class="card-emerald col-gap">
+        <div class="section-title c-emerald800">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><polyline points="8 14 10 11 12 13 14 10"/></svg>
+          食事の傾向・栄養分析
+        </div>
+        <div class="grid-2-gap">
+          <div class="analysis-mini">総カロリー: <span class="c-emerald600" id="analysis-total-cal">0 kcal</span></div>
+          <div class="analysis-mini">傾向: <span class="c-slate700" id="analysis-dominant-trend">データ不足</span></div>
+        </div>
+        <div class="card col-gap" style="border-color:#a7f3d0;padding:12px;">
+          <span style="font-size:0.75rem;font-weight:700;color:#065f46;">🥦 栄養・食事習慣改善アドバイス</span>
+          <p id="analysis-advice" class="text-xs c-slate600" style="line-height:1.6;">食事を登録すると、傾向に合わせた改善案が自動生成されます。</p>
+        </div>
+      </div>
+    </div><!-- /meals -->
+
+    <!-- ── WORKOUT ─────────────────────────────── -->
+    <div id="tab-workout" class="tab-content">
+      <div class="card col-gap">
+        <div id="workout-input-section">
+          <div class="section-title c-teal600">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="14.5" cy="3.5" r="1.5"/><path d="m9.9 10.75 2.35 2.4-2.25 4.35a1 1 0 0 0 1.8.9l2.55-4.9 2.15 2.2v4.3a1 1 0 0 0 2 0V15l-2.5-2.6.85-4.2 1.15 1.3H21a1 1 0 0 0 0-2h-2.5l-2-2.25a2 2 0 0 0-1.6-.75 2 2 0 0 0-.9.25l-3.5 1.75a2 2 0 0 0-1 1.9l.4 3.35-2.4 1.25a1 1 0 0 0 .9 1.8l3-1.5a1 1 0 0 0 .55-1l-.35-2.55z"/></svg>
+            運動目標と実績入力
+          </div>
+          <div class="grid-2-gap" style="text-align:center;background:#f8fafc;border-radius:10px;padding:10px;font-size:0.78rem;">
+            <div>目標ノルマ: <strong id="workout-norm-val">30 分</strong></div>
+            <div>今日の実施: <strong class="c-teal600" id="workout-done-val">0 分</strong></div>
+          </div>
+          <div class="row-gap mt8">
+            <input type="number" id="workout-input-time" placeholder="運動時間 (分)" style="flex:1;">
+            <button class="btn btn-teal" onclick="logWorkout()">記録</button>
+          </div>
+        </div>
+        <div id="workout-goal-done" class="hidden row-between">
+          <span class="text-xs" style="color:#0f766e;font-weight:600;">🎉 今日のノルマ達成済み（<span id="workout-goal-done-val"></span> 分）</span>
+          <button class="btn-ghost-teal" onclick="reopenWorkoutInput()">追加で記録</button>
+        </div>
+      </div>
+
+      <div class="card-teal">
+        <span style="font-size:0.75rem;font-weight:700;color:#0f766e;display:block;margin-bottom:5px;">🔄 ノルマ・頻度の自動最適化</span>
+        <p id="workout-adjustment-text" class="text-xs c-slate600" style="line-height:1.6;">日々の達成度に応じて、挫折しないように自動で目標時間を修正します。</p>
+      </div>
+
+      <div class="card col-gap">
+        <div class="section-title c-slate700">🎯 目的に合わせた最適な運動アプローチ</div>
+        <div id="workout-recommendations" class="col-gap"></div>
+      </div>
+    </div><!-- /workout -->
+
+    <!-- ── SLEEP / WATER ──────────────────────── -->
+    <div id="tab-sleep" class="tab-content">
+      <div class="card col-gap">
+        <div class="section-title c-indigo700" style="color:#6366f1;">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8h-2v-2H4v2H2zM4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4H4zm6-3H6v3h4V7zm8 0h-4v3h4V7z"/></svg>
+          睡眠管理＆アラーム
+        </div>
+        <div class="grid-2-gap">
+          <div>
+            <label class="label">就寝リマインド</label>
+            <input type="time" id="alarm-sleep" value="23:00" onchange="updateWaterReminderStatus()">
+          </div>
+          <div>
+            <label class="label">起床アラーム</label>
+            <input type="time" id="alarm-wake" value="07:00" onchange="updateWaterReminderStatus()">
+          </div>
+        </div>
+        <div class="row-gap">
+          <input type="number" id="sleep-duration-input" placeholder="実際の睡眠時間 (時間)" step="0.5" style="flex:1;">
+          <button class="btn btn-indigo" style="width:auto;white-space:nowrap;" onclick="logSleep()">記録</button>
+        </div>
+      </div>
+
+      <div class="card col-gap">
+        <div class="section-title" style="color:#0284c7;">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 9.15 5 14a7 7 0 0 0 14 0c0-4.85-3.13-12-7-12z"/></svg>
+          水分補給リマインド
+        </div>
+        <div class="remind-row">
+          <span class="text-xs">1.5時間おきの水分補給プッシュ通知</span>
+          <input type="checkbox" id="water-remind-toggle" checked onchange="updateWaterReminderStatus()">
+        </div>
+        <p id="water-remind-status" class="note">就寝〜起床の時間帯（上の設定に連動）は自動でオフになります。</p>
+        <div class="grid-3-gap">
+          <button class="btn-border" onclick="addWater(100)">100ml 🥛</button>
+          <button class="btn-border" onclick="addWater(350)">350ml ☕</button>
+          <button class="btn-border" onclick="addWater(500)">500ml 🫙</button>
+        </div>
+      </div>
+    </div><!-- /sleep -->
+
+    <!-- ── PROFILE ───────────────────────────────── -->
+    <div id="tab-profile" class="tab-content">
+
+      <!-- Profile banner showing current data -->
+      <div class="profile-banner">
+        <div class="profile-avatar-large" id="profile-avatar-emoji">👤</div>
+        <div class="profile-banner-info">
+          <div class="profile-banner-name" id="profile-banner-name">プロフィール</div>
+          <div class="profile-banner-stats" id="profile-banner-stats">
+            <span>—</span>
+          </div>
+        </div>
+      </div>
+      <p class="profile-edit-hint">以下のフォームからいつでも編集できます</p>
+
+      <div class="card col-gap">
+        <div class="section-title c-slate700">👤 基本情報</div>
+        <div class="grid-2-gap">
+          <div>
+            <label class="label">年齢</label>
+            <input type="number" id="prof-age" value="28" placeholder="年齢">
+          </div>
+          <div>
+            <label class="label">性別</label>
+            <select id="prof-gender">
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2-gap">
+          <div>
+            <label class="label">身長 (cm)</label>
+            <input type="number" id="prof-height" value="170" placeholder="身長(cm)">
+          </div>
+          <div>
+            <label class="label">体重 (kg)</label>
+            <input type="number" id="prof-weight" value="65" placeholder="体重(kg)">
+          </div>
+        </div>
+
+        <div class="section-divider" style="margin-top:6px;"></div>
+
+        <div class="section-title c-slate700" style="margin-top:4px;">🌿 アレルギー情報（複数選択可）</div>
+        <div class="ob-chips" id="prof-allergy-chips">
+          <button class="ob-chip" data-val="特になし" onclick="toggleAllergyChip('prof','特になし', this)">特になし</button>
+          <button class="ob-chip" data-val="卵" onclick="toggleAllergyChip('prof','卵', this)">卵</button>
+          <button class="ob-chip" data-val="乳製品" onclick="toggleAllergyChip('prof','乳製品', this)">乳製品</button>
+          <button class="ob-chip" data-val="小麦" onclick="toggleAllergyChip('prof','小麦', this)">小麦</button>
+          <button class="ob-chip" data-val="大豆" onclick="toggleAllergyChip('prof','大豆', this)">大豆</button>
+          <button class="ob-chip" data-val="魚" onclick="toggleAllergyChip('prof','魚', this)">魚</button>
+          <button class="ob-chip" data-val="甲殻類" onclick="toggleAllergyChip('prof','甲殻類', this)">甲殻類(えび・かに)</button>
+          <button class="ob-chip" data-val="貝類" onclick="toggleAllergyChip('prof','貝類', this)">貝類・いか</button>
+          <button class="ob-chip" data-val="そば" onclick="toggleAllergyChip('prof','そば', this)">そば</button>
+          <button class="ob-chip" data-val="落花生" onclick="toggleAllergyChip('prof','落花生', this)">落花生</button>
+          <button class="ob-chip" data-val="ナッツ類" onclick="toggleAllergyChip('prof','ナッツ類', this)">ナッツ類</button>
+          <button class="ob-chip" data-val="ごま" onclick="toggleAllergyChip('prof','ごま', this)">ごま</button>
+          <button class="ob-chip" data-val="牛肉" onclick="toggleAllergyChip('prof','牛肉', this)">牛肉</button>
+          <button class="ob-chip" data-val="豚肉" onclick="toggleAllergyChip('prof','豚肉', this)">豚肉</button>
+          <button class="ob-chip" data-val="鶏肉" onclick="toggleAllergyChip('prof','鶏肉', this)">鶏肉</button>
+          <button class="ob-chip" data-val="バナナ" onclick="toggleAllergyChip('prof','バナナ', this)">バナナ</button>
+        </div>
+        <input type="text" id="prof-allergy" value="" placeholder="その他の備考（任意・表示用メモ）" class="mt8">
+        <p class="note">✅ 上のチップで選択した項目は、食事提案から自動で除外されます。自由入力欄は備考用メモです。</p>
+
+        <div class="section-divider"></div>
+
+        <div>
+          <div class="section-title c-slate700">🎯 フィットネス目標（複数選択可）</div>
+          <div class="grid-2-gap">
+            <button type="button" onclick="toggleGoal('lose')"    id="goal-btn-lose"    class="goal-btn">📉 減量</button>
+            <button type="button" onclick="toggleGoal('gain')"    id="goal-btn-gain"    class="goal-btn">📈 増量</button>
+            <button type="button" onclick="toggleGoal('health')"  id="goal-btn-health"  class="goal-btn">💚 健康維持</button>
+            <button type="button" onclick="toggleGoal('stamina')" id="goal-btn-stamina" class="goal-btn">⚡ 体力増加</button>
+          </div>
+          <p id="goal-conflict-note" class="conflict-note hidden">減量と増量は同時に選択できません。</p>
+        </div>
+
+        <button class="btn btn-dark" onclick="saveProfile()">保存してAI提案を最適化</button>
+      </div>
+    </div><!-- /profile -->
+
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="app-nav">
+    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active">
+      <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><span>ホーム</span>
+    </button>
+    <button onclick="switchTab('meals')" id="nav-meals" class="nav-btn">
+      <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 0 0-9 9h18a9 9 0 0 0-9-9zm-9 11a9 9 0 0 0 18 0H3zm7 3h4v1a2 2 0 0 1-4 0v-1z"/></svg><span>食事</span>
+    </button>
+    <button onclick="switchTab('workout')" id="nav-workout" class="nav-btn">
+      <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="10" width="3" height="4" rx="1"/><rect x="4" y="7" width="2" height="10" rx="1"/><rect x="18" y="7" width="2" height="10" rx="1"/><rect x="20" y="10" width="3" height="4" rx="1"/><rect x="6" y="11" width="12" height="2" rx="1"/></svg><span>運動</span>
+    </button>
+    <button onclick="switchTab('sleep')" id="nav-sleep" class="nav-btn">
+      <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>睡眠水分</span>
+    </button>
+    <button onclick="switchTab('profile')" id="nav-profile" class="nav-btn">
+      <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a6.99 6.99 0 0 0-1.62-.94l-.36-2.54A.48.48 0 0 0 14 2h-4a.48.48 0 0 0-.48.41l-.36 2.54a7.35 7.35 0 0 0-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.47a.47.47 0 0 0 .12.61l2.03 1.58c-.04.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.3.59.22l2.39-.96c.5.36 1.04.67 1.62.94l.36 2.54c.06.28.31.48.6.48h4c.28 0 .54-.2.59-.48l.36-2.54a7.35 7.35 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg><span>設定</span>
+    </button>
+  </nav>
+
+</div><!-- /app-shell -->
+
+<script>
+  /* ─────────────────────────────────────────────────
+     STATE
+  ───────────────────────────────────────────────── */
+  let appState = {
+    profile: { age: 28, gender: 'male', height: 170, weight: 65, allergy: '特になし', allergens: [], goals: [] },
+    today: { meals: [], water: 0, sleepDuration: 0, workoutDuration: 0, workoutNorm: 30, condition: 'normal', conditionLoggedDate: null, streak: 0 },
+    history: { dates: ['今日'], weight: [65] }
+  };
+  let weightChartInstance = null;
+
+  /* ─────────────────────────────────────────────────
+     STORAGE (DEMO MODE)
+     NOTE: Browser localStorage is not supported inside
+     Claude artifacts, so persistence is in-memory only
+     for this session. State resets on reload — which is
+     exactly what we want for a "Day 0" demo.
+  ───────────────────────────────────────────────── */
+  function saveToLocalStorage() { /* demo mode: in-memory only, no-op */ }
+  function loadFromLocalStorage() { /* demo mode: in-memory only, no-op */ }
+
+  /* ─────────────────────────────────────────────────
+     ONBOARDING
+  ───────────────────────────────────────────────── */
+  let obStep = 0;
+  const OB_TOTAL = 4;
+  let obGoals = [];
+  // Shared allergy-chip selection state for both the onboarding flow ('ob')
+  // and the profile tab ('prof'). Values are canonical allergen tags that
+  // are matched directly against each meal's `allergens` list.
+  let allergyChipsState = { ob: ['特になし'], prof: ['特になし'] };
+
+  function checkFirstLaunch() {
+    // DEMO MODE: always start at Day 0, so onboarding always shows.
+    document.getElementById('onboarding-overlay').classList.remove('ob-hidden');
+    syncAllergyChipUI('ob');
+  }
+
+  function obNext() {
+    // Collect data from current step
+    if (obStep === 0) {
+      // Age + gender already in inputs; just advance
+    } else if (obStep === 1) {
+      // Height + weight; just advance
+    } else if (obStep === 2) {
+      // Allergy; sync from chips if any
+    }
+
+    if (obStep < OB_TOTAL - 1) {
+      document.getElementById('ob-step-' + obStep).classList.add('ob-step-hidden');
+      obStep++;
+      const nextEl = document.getElementById('ob-step-' + obStep);
+      nextEl.classList.remove('ob-step-hidden');
+      // Re-trigger animation
+      nextEl.style.animation = 'none'; void nextEl.offsetWidth; nextEl.style.animation = '';
+      obUpdateDots();
+      obUpdateNav();
+    } else {
+      // Final step – complete onboarding
+      completeOnboarding();
+    }
+  }
+
+  function obPrev() {
+    if (obStep > 0) {
+      document.getElementById('ob-step-' + obStep).classList.add('ob-step-hidden');
+      obStep--;
+      const prevEl = document.getElementById('ob-step-' + obStep);
+      prevEl.classList.remove('ob-step-hidden');
+      prevEl.style.animation = 'none'; void prevEl.offsetWidth; prevEl.style.animation = '';
+      obUpdateDots();
+      obUpdateNav();
+    }
+  }
+
+  function obUpdateDots() {
+    for (let i = 0; i < OB_TOTAL; i++) {
+      const dot = document.getElementById('ob-dot-' + i);
+      dot.classList.toggle('active', i === obStep);
+      dot.classList.toggle('done',   i < obStep);
+    }
+  }
+
+  function obUpdateNav() {
+    const backBtn = document.getElementById('ob-back-btn');
+    const nextBtn = document.getElementById('ob-next-btn');
+    backBtn.style.display = obStep > 0 ? 'flex' : 'none';
+    if (obStep === OB_TOTAL - 1) {
+      nextBtn.innerHTML = '✨ はじめる！';
+    } else {
+      nextBtn.innerHTML = '次へ <svg style="width:15px;height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    }
+  }
+
+  function toggleObGoal(g) {
+    const conflicts = { lose: 'gain', gain: 'lose' };
+    const idx = obGoals.indexOf(g);
+    if (idx > -1) {
+      obGoals.splice(idx, 1);
+    } else {
+      const c = conflicts[g];
+      if (c) { const ci = obGoals.indexOf(c); if (ci > -1) obGoals.splice(ci, 1); }
+      obGoals.push(g);
+    }
+    ['lose','gain','health','stamina'].forEach(goal => {
+      document.getElementById('obg-' + goal).classList.toggle('selected', obGoals.includes(goal));
+    });
+  }
+
+  // Generic chip toggler shared by the onboarding step ('ob') and the
+  // profile tab ('prof'). Keeps allergyChipsState[ctx] in sync with the
+  // clicked buttons, treating "特になし" as mutually exclusive with
+  // everything else.
+  function toggleAllergyChip(ctx, value, btn) {
+    const containerId = ctx === 'ob' ? 'ob-allergy-chips' : 'prof-allergy-chips';
+    const noneBtn = document.querySelector('#' + containerId + ' .ob-chip[data-val="特になし"]');
+    let arr = allergyChipsState[ctx];
+
+    if (value === '特になし') {
+      allergyChipsState[ctx] = ['特になし'];
+      document.querySelectorAll('#' + containerId + ' .ob-chip').forEach(c => c.classList.remove('ob-chip-active'));
+      btn.classList.add('ob-chip-active');
+    } else {
+      allergyChipsState[ctx] = arr.filter(a => a !== '特になし');
+      if (noneBtn) noneBtn.classList.remove('ob-chip-active');
+      const idx = allergyChipsState[ctx].indexOf(value);
+      if (idx > -1) {
+        allergyChipsState[ctx].splice(idx, 1);
+        btn.classList.remove('ob-chip-active');
+      } else {
+        allergyChipsState[ctx].push(value);
+        btn.classList.add('ob-chip-active');
+      }
+      if (allergyChipsState[ctx].length === 0) {
+        allergyChipsState[ctx] = ['特になし'];
+        if (noneBtn) noneBtn.classList.add('ob-chip-active');
+      }
+    }
+  }
+
+  // Re-renders chip active/inactive states from allergyChipsState[ctx],
+  // used when opening the profile tab or right after onboarding.
+  function syncAllergyChipUI(ctx) {
+    const containerId = ctx === 'ob' ? 'ob-allergy-chips' : 'prof-allergy-chips';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const selected = allergyChipsState[ctx];
+    container.querySelectorAll('.ob-chip').forEach(btn => {
+      btn.classList.toggle('ob-chip-active', selected.includes(btn.dataset.val));
+    });
+  }
+
+  function completeOnboarding() {
+    // Read all values
+    appState.profile.age    = parseInt(document.getElementById('ob-age').value)    || 28;
+    appState.profile.gender = document.getElementById('ob-gender').value            || 'male';
+    appState.profile.height = parseFloat(document.getElementById('ob-height').value)|| 170;
+    appState.profile.weight = parseFloat(document.getElementById('ob-weight').value)|| 65;
+    const obAllergens = allergyChipsState.ob.filter(a => a !== '特になし');
+    appState.profile.allergens = obAllergens;
+    const obNote = document.getElementById('ob-allergy').value.trim();
+    appState.profile.allergy = obAllergens.length ? obAllergens.join('、') + (obNote ? '（' + obNote + '）' : '') : (obNote || '特になし');
+    appState.profile.goals  = obGoals.length ? obGoals : ['health'];
+    appState.history.weight = [appState.profile.weight];
+
+    // Carry the same allergy selections over to the profile tab's chips.
+    allergyChipsState.prof = allergyChipsState.ob.slice();
+
+    saveToLocalStorage();
+
+    // Hide overlay with a quick fade
+    const overlay = document.getElementById('onboarding-overlay');
+    overlay.style.transition = 'opacity 0.35s ease';
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.classList.add('ob-hidden'), 360);
+
+    // Sync profile form and refresh UI
+    syncProfileForm();
+    syncAllergyChipUI('prof');
+    renderGoalButtons();
+    applyProfileChanges();
+    suggestAllMeals();
+    updateUI();
+    initChart();
+    updateProfileBanner();
+    updateAllergyBanner();
+  }
+
+  /* ─────────────────────────────────────────────────
+     PROFILE SYNC (edit-anytime form ↔ appState)
+  ───────────────────────────────────────────────── */
+  function syncProfileForm() {
+    document.getElementById('prof-age').value    = appState.profile.age;
+    document.getElementById('prof-gender').value = appState.profile.gender;
+    document.getElementById('prof-height').value = appState.profile.height;
+    document.getElementById('prof-weight').value = appState.profile.weight;
+    document.getElementById('prof-allergy').value= appState.profile.allergy;
+  }
+
+  function updateProfileBanner() {
+    const p = appState.profile;
+    const avatarMap = { male: '👨', female: '👩', other: '🧑' };
+    document.getElementById('profile-avatar-emoji').textContent = avatarMap[p.gender] || '👤';
+    const gLabel = p.gender === 'male' ? '男性' : p.gender === 'female' ? '女性' : 'その他';
+    document.getElementById('profile-banner-name').textContent =
+      p.age + '歳・' + gLabel;
+    document.getElementById('profile-banner-stats').innerHTML =
+      '<span>' + p.height + ' cm</span> / <span>' + p.weight + ' kg</span> ・ ' + (p.allergy || '特になし');
+  }
+
+  /* ─────────────────────────────────────────────────
+     TAB SWITCHING
+  ───────────────────────────────────────────────── */
+  function switchTab(name) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.getElementById('nav-' + name).classList.add('active');
+    if (name === 'dashboard' && weightChartInstance) setTimeout(() => weightChartInstance.update(), 100);
+    if (name === 'profile') { updateProfileBanner(); syncAllergyChipUI('prof'); }
+  }
+
+  /* ─────────────────────────────────────────────────
+     WATER / SLEEP / WORKOUT
+  ───────────────────────────────────────────────── */
+  function addWater(amount) { appState.today.water += amount; saveToLocalStorage(); updateUI(); updateWaterCardVisibility(); }
+
+  function logSleep() {
+    const h = parseFloat(document.getElementById('sleep-duration-input').value);
+    if (h > 0) { appState.today.sleepDuration = h; saveToLocalStorage(); updateUI(); }
+  }
+
+  function updateWaterCardVisibility() {
+    const show = appState.today.water >= 2000;
+    document.getElementById('water-input-section').classList.toggle('hidden', show);
+    document.getElementById('water-goal-done').classList.toggle('hidden', !show);
+  }
+
+  function toggleWeightChart() {
+    document.getElementById('weight-chart-body').classList.toggle('hidden');
+    const ch = document.getElementById('weight-chart-chevron');
+    ch.style.transform = ch.style.transform === 'rotate(180deg)' ? '' : 'rotate(180deg)';
+  }
+
+  function reopenWorkoutInput() {
+    document.getElementById('workout-input-section').classList.remove('hidden');
+    document.getElementById('workout-goal-done').classList.add('hidden');
+  }
+
+  function updateWorkoutCardVisibility() {
+    const done = appState.today.workoutDuration >= appState.today.workoutNorm;
+    document.getElementById('workout-input-section').classList.toggle('hidden', done);
+    document.getElementById('workout-goal-done').classList.toggle('hidden', !done);
+    if (done) document.getElementById('workout-goal-done-val').innerText = appState.today.workoutDuration;
+  }
+
+  /* ─────────────────────────────────────────────────
+     SLEEP WINDOW REMINDER
+  ───────────────────────────────────────────────── */
+  function parseTimeToMinutes(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+
+  function isWithinSleepWindow() {
+    const sEl = document.getElementById('alarm-sleep');
+    const wEl = document.getElementById('alarm-wake');
+    if (!sEl || !wEl || !sEl.value || !wEl.value) return false;
+    const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+    const sMin = parseTimeToMinutes(sEl.value); const wMin = parseTimeToMinutes(wEl.value);
+    if (sMin === wMin) return false;
+    return sMin < wMin ? (nowMin >= sMin && nowMin < wMin) : (nowMin >= sMin || nowMin < wMin);
+  }
+
+  function updateWaterReminderStatus() {
+    const tog = document.getElementById('water-remind-toggle');
+    const st  = document.getElementById('water-remind-status');
+    if (!tog.checked) { st.innerText = '水分補給リマインドはオフです。'; return; }
+    st.innerText = isWithinSleepWindow()
+      ? '就寝時間中のため、水分補給リマインドは自動で一時停止しています。'
+      : '就寝〜起床の時間帯（上の設定に連動）は自動でオフになります。';
+  }
+
+  /* ─────────────────────────────────────────────────
+     GOAL BUTTONS (profile tab)
+  ───────────────────────────────────────────────── */
+  const goalConflicts = { lose: 'gain', gain: 'lose' };
+
+  function toggleGoal(g) {
+    const gs = appState.profile.goals;
+    const i = gs.indexOf(g);
+    if (i > -1) { gs.splice(i, 1); }
+    else {
+      const c = goalConflicts[g]; if (c) { const ci = gs.indexOf(c); if (ci > -1) gs.splice(ci, 1); }
+      gs.push(g);
+    }
+    renderGoalButtons();
+  }
+
+  function renderGoalButtons() {
+    ['lose','gain','health','stamina'].forEach(g => {
+      document.getElementById('goal-btn-' + g).classList.toggle('selected', appState.profile.goals.includes(g));
+    });
+  }
+
+  /* ─────────────────────────────────────────────────
+     CONDITION
+  ───────────────────────────────────────────────── */
+  function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); }
+  const conditionEmoji = { good:'😊 絶好調', normal:'😐 普通', tired:'🥱 疲労', bad:'😰 不調' };
+
+  function setCondition(c) {
+    appState.today.condition = c; appState.today.conditionLoggedDate = todayKey();
+    saveToLocalStorage(); updateUI(); applyProfileChanges(); updateMentalTabVisibility();
+  }
+  function editCondition() { appState.today.conditionLoggedDate = null; saveToLocalStorage(); updateMentalTabVisibility(); }
+  function updateMentalTabVisibility() {
+    const logged = appState.today.conditionLoggedDate === todayKey();
+    document.getElementById('mental-picker').classList.toggle('hidden', logged);
+    document.getElementById('mental-done').classList.toggle('hidden', !logged);
+    if (logged) document.getElementById('mental-done-emoji').innerText = conditionEmoji[appState.today.condition] || '';
+  }
+
+  /* ─────────────────────────────────────────────────
+     MEALS
+  ───────────────────────────────────────────────── */
+  function addMeal() {
+    const type  = document.getElementById('meal-type').value;
+    const name  = document.getElementById('meal-name').value; if (!name) return;
+    const cal   = parseInt(document.getElementById('meal-calories').value) || 0;
+    const trend = document.getElementById('meal-trend').value;
+    appState.today.meals.push({ type, name, cal, trend });
+    saveToLocalStorage();
+    document.getElementById('meal-name').value = '';
+    document.getElementById('meal-calories').value = '';
+    updateUI(); analyzeMeals();
+  }
+
+  function analyzeMeals() {
+    const meals = appState.today.meals;
+    const totalCal = meals.reduce((s, m) => s + m.cal, 0);
+    document.getElementById('analysis-total-cal').innerText = totalCal + ' kcal';
+    if (!meals.length) {
+      document.getElementById('analysis-dominant-trend').innerText = 'データ不足';
+      document.getElementById('analysis-advice').innerText = '食事を登録すると、傾向に合わせた改善案が自動生成されます。';
+      return;
+    }
+    const cnt = {}; meals.forEach(m => { cnt[m.trend] = (cnt[m.trend] || 0) + 1; });
+    const dom = Object.keys(cnt).reduce((a, b) => cnt[a] >= cnt[b] ? a : b);
+    const labels = { 'balanced':'バランスが良い','high-carb':'糖質・炭水化物多め','high-fat':'脂質・揚げ物多め','high-protein':'高タンパク質' };
+    document.getElementById('analysis-dominant-trend').innerText = labels[dom];
+    const advice = {
+      'balanced':'良いバランスです。この調子で野菜の品目数を増やすとさらに良くなります。',
+      'high-carb':'糖質が多めの傾向です。白米を半分にして野菜やタンパク質を増やすと血糖値の急上昇を抑えられます。',
+      'high-fat':'脂質の摂取が多めです。揚げ物を焼き物・蒸し料理に変えるだけでカロリーを抑えられます。',
+      'high-protein':'タンパク質中心で良い傾向です。野菜や食物繊維も忘れずに摂りましょう。'
+    };
+    document.getElementById('analysis-advice').innerText = advice[dom];
+  }
+
+  /* ─────────────────────────────────────────────────
+     WORKOUT
+  ───────────────────────────────────────────────── */
+  function logWorkout() {
+    const t = parseInt(document.getElementById('workout-input-time').value) || 0; if (t <= 0) return;
+    appState.today.workoutDuration += t;
+    document.getElementById('workout-input-time').value = '';
+    saveToLocalStorage(); updateUI(); checkWorkoutAdjustment(); updateWorkoutCardVisibility();
+  }
+  function checkWorkoutAdjustment() {
+    const done = appState.today.workoutDuration >= appState.today.workoutNorm;
+    document.getElementById('workout-adjustment-text').innerText = done
+      ? '🌟 ノルマ達成！この調子を維持できれば自動で段階的に負荷を上げます。'
+      : '⚡ あと少し！きつい場合は明日自動でノルマを5分下方修正し無理をなくします。';
+  }
+
+  /* ─────────────────────────────────────────────────
+     SAVE PROFILE (edit-anytime)
+  ───────────────────────────────────────────────── */
+  function saveProfile() {
+    appState.profile.age    = parseInt(document.getElementById('prof-age').value)     || appState.profile.age;
+    appState.profile.gender = document.getElementById('prof-gender').value;
+    appState.profile.height = parseFloat(document.getElementById('prof-height').value)|| appState.profile.height;
+    appState.profile.weight = parseFloat(document.getElementById('prof-weight').value)|| appState.profile.weight;
+    const profAllergens = allergyChipsState.prof.filter(a => a !== '特になし');
+    appState.profile.allergens = profAllergens;
+    const profNote = document.getElementById('prof-allergy').value.trim();
+    appState.profile.allergy = profAllergens.length ? profAllergens.join('、') + (profNote ? '（' + profNote + '）' : '') : (profNote || '特になし');
+    appState.history.weight[appState.history.weight.length - 1] = appState.profile.weight;
+    saveToLocalStorage();
+    applyProfileChanges();
+    suggestAllMeals();
+    initChart();
+    updateProfileBanner();
+    updateAllergyBanner();
+    switchTab('dashboard');
+  }
+
+  // Refreshes the "excluded allergens" summary shown at the top of the Meals tab.
+  function updateAllergyBanner() {
+    const el = document.getElementById('meals-allergy-list');
+    if (!el) return;
+    const list = (appState.profile.allergens || []).filter(a => a !== '特になし');
+    el.innerText = list.length ? list.join('、') : '特になし';
+  }
+
+  /* ─────────────────────────────────────────────────
+     AI / RECOMMENDATIONS
+  ───────────────────────────────────────────────── */
+  function applyProfileChanges() {
+    const goals = appState.profile.goals.length ? appState.profile.goals : ['health'];
+    const cond  = appState.today.condition;
+    const aiParts = [];
+    let workoutHtml = '';
+    if (goals.includes('lose')) {
+      aiParts.push('【減量】脂肪燃焼チャンス。食前にコップ1杯の水分を。');
+      if (cond === 'tired') aiParts.push('疲労気味なので激しい運動は避け、スープ等で内臓を温める食事を優先。');
+      workoutHtml += `<div class="workout-rec workout-rec-rose">🏃 <b>脂肪燃焼HIIT & ウォーキング</b>早歩き20分が効果的。</div>`;
+    }
+    if (goals.includes('gain')) {
+      aiParts.push('【増量】運動後30分以内の高タンパク・高カロリー補給を意識しましょう。');
+      workoutHtml += `<div class="workout-rec workout-rec-blue">💪 <b>自宅スクワット＆プッシュアップ</b>15回×3セットで筋肥大を促進。</div>`;
+    }
+    if (goals.includes('health')) {
+      aiParts.push('【健康維持】規則正しい睡眠アラームの厳守と、小まめな水分補給が基本です。');
+      workoutHtml += `<div class="workout-rec workout-rec-emerald">🧘 <b>全身ストレッチ & ラジオ体操</b>自律神経を整えましょう。</div>`;
+    }
+    if (goals.includes('stamina')) {
+      aiParts.push('【体力増加】インターバルトレーニングで心肺機能を高めましょう。');
+      workoutHtml += `<div class="workout-rec workout-rec-amber">⚡ <b>インターバル走 or サーキット</b>運動と休息を交互に繰り返すと効果的。</div>`;
+    }
+    document.getElementById('ai-suggestion-text').innerText = aiParts.join(' ') || '目標に合わせた習慣・方法がここに表示されます。';
+    document.getElementById('workout-recommendations').innerHTML = workoutHtml;
+  }
+
+  /* ─────────────────────────────────────────────────
+     MEAL DATA & SUGGESTIONS
+  ───────────────────────────────────────────────── */
+  // Each meal item carries an `allergens` array tagging the allergens it
+  // contains, drawn from the same vocabulary as the allergy chips above.
+  // pickMealSuggestion() below filters these out before a suggestion is
+  // ever shown to the user.
+  const mealData = {
+    breakfast: {
+      lose:   [{title:'オートミールとバナナ',desc:'食物繊維が豊富で血糖値の急上昇を防ぎます。低カロリーで腹持ちが良く、ダイエット中の定番朝食です。',allergens:['バナナ']},{title:'卵白とほうれん草のオムレツ',desc:'高タンパクで脂質を抑えた一品。野菜を一緒に摂れる栄養バランス◎の朝食です。',allergens:['卵']},{title:'ギリシャヨーグルトとベリー',desc:'低脂肪で乳タンパク質豊富。ベリーのポリフェノールで代謝サポートも期待できます。',allergens:['乳製品']}],
+      gain:   [{title:'卵3個のスクランブルエッグとトースト',desc:'高タンパク＋炭水化物で筋肉合成に最適。カロリーをしっかり確保できる朝食です。',allergens:['卵','小麦']},{title:'プロテイン入りパンケーキ',desc:'炭水化物とタンパク質を同時に補給。朝からしっかりエネルギーを蓄えましょう。',allergens:['卵','乳製品','小麦']},{title:'鮭おにぎりと味噌汁',desc:'タンパク質豊富な鮭と米の組み合わせ。増量期に必要な栄養素をバランス良く摂れます。',allergens:['魚','大豆']}],
+      health: [{title:'納豆ご飯と味噌汁',desc:'発酵食品で腸内環境を整え、大豆タンパクで代謝維持。和食の黄金バランス朝食です。',allergens:['大豆']},{title:'フルーツ入り全粒粉トースト',desc:'食物繊維豊富な全粒粉と果物でビタミン補給。健康維持に欠かせない栄養が揃います。',allergens:['小麦']},{title:'焼き魚と漬物の和定食',desc:'DHA・EPAが豊富な魚と発酵漬物で腸活。日本の伝統的健康朝食スタイルです。',allergens:['魚']}],
+      stamina:[{title:'バナナとピーナッツバタートースト',desc:'素早いエネルギー補給に最適。運動前の朝食として即効性のある糖質と良質な脂質が摂れます。',allergens:['小麦','落花生','バナナ']},{title:'オートミールと卵',desc:'持続性のあるエネルギー源＋完全タンパク質。体力増加を目指すアスリート向きの朝食です。',allergens:['卵']},{title:'スムージーとゆで卵',desc:'野菜・果物・タンパク質を一度に摂れる時短朝食。体力強化に必要な栄養素を効率よく補給します。',allergens:['卵','乳製品']}],
+    },
+    lunch: {
+      lose:   [{title:'鶏胸肉と野菜のグリル',desc:'高タンパク低カロリーの鶏胸肉をたっぷりの野菜と合わせた脂肪燃焼ランチ。満足感も高い一品です。',allergens:['鶏肉']},{title:'豆腐とわかめのスープ定食',desc:'低カロリーで栄養豊富。食物繊維と植物性タンパクで腹持ち良く、ダイエット中でも満足できます。',allergens:['大豆']},{title:'蒸し野菜と魚の塩焼き',desc:'調理法を工夫して脂質を最小限に。素材の味を活かした体に優しいランチセットです。',allergens:['魚']}],
+      gain:   [{title:'牛肉と野菜の炒め物（ご飯大盛り）',desc:'タンパク質と炭水化物を大量摂取。増量期に必要なカロリー確保と筋肉合成素材を同時に補給します。',allergens:['牛肉']},{title:'鮭と卵かけご飯',desc:'オメガ3とタンパク質が豊富な組み合わせ。手軽にカロリーとタンパク質をしっかり確保できます。',allergens:['魚','卵']},{title:'チキンとアボカドのライスボウル',desc:'良質な脂質＋タンパク質＋炭水化物の三拍子揃ったバルクアップに最適なランチです。',allergens:['鶏肉']}],
+      health: [{title:'野菜たっぷり鍋うどん',desc:'多種類の野菜でビタミン・ミネラル補給。体を温めながら栄養バランスを整える定番ランチです。',allergens:['小麦']},{title:'焼き魚定食',desc:'DHAとEPAで脳・心臓の健康維持。ご飯・味噌汁・小鉢が揃った栄養バランス◎の和定食です。',allergens:['魚','大豆']},{title:'具沢山の味噌汁と雑穀ご飯',desc:'発酵食品と食物繊維で腸活サポート。雑穀の豊富なビタミンBで代謝を高めます。',allergens:['大豆']}],
+      stamina:[{title:'鶏むね肉とパスタ',desc:'アスリート定番の組み合わせ。持続的なエネルギーとタンパク質補給で午後のパフォーマンスを上げます。',allergens:['鶏肉','小麦']},{title:'豚肉と野菜の炒め定食',desc:'ビタミンB1が豊富な豚肉で疲労回復。野菜のミネラルと合わせて体力強化をサポートします。',allergens:['豚肉']},{title:'卵と野菜のチャーハン',desc:'素早い炭水化物補給と良質なタンパク質。体力強化期の昼食として使いやすい一品です。',allergens:['卵']}],
+    },
+    dinner: {
+      lose:   [{title:'豆腐と野菜の鍋',desc:'低カロリーで体を温め、代謝を促進。夜の食事を軽くしたい方に最適な満足感ある一品です。',allergens:['大豆']},{title:'蒸し鶏とサラダ',desc:'高タンパク低脂肪で就寝前の筋肉維持に最適。野菜たっぷりで食物繊維もしっかり摂れます。',allergens:['鶏肉']},{title:'魚の塩焼きと味噌汁',desc:'シンプルな調理法で余分な脂を控えた夕食。体に優しく睡眠の質向上にも繋がります。',allergens:['魚','大豆']}],
+      gain:   [{title:'牛肉のステーキとご飯',desc:'筋肉合成に最適な動物性タンパク質をたっぷり摂取。増量期の夕食として定番のスタイルです。',allergens:['牛肉']},{title:'鶏もも肉グリルと炭水化物多め定食',desc:'カロリーとタンパク質を夜にしっかり補給。就寝中の筋肉合成をサポートする夕食です。',allergens:['鶏肉']},{title:'豚肉の生姜焼きとご飯',desc:'生姜の代謝促進効果＋豚肉のタンパク質で筋肉強化。増量期に嬉しい和風ガッツリ夕食です。',allergens:['豚肉']}],
+      health: [{title:'野菜たっぷりの和食定食',desc:'多彩な野菜で抗酸化成分をたっぷり補給。健康維持のための理想的なバランス夕食です。',allergens:[]},{title:'焼き魚と煮物',desc:'和の伝統食で体を整える夕食。魚のオメガ3と根菜の食物繊維で内側から健康を維持します。',allergens:['魚']},{title:'具沢山味噌汁と雑穀ご飯',desc:'腸内環境を整える発酵食品と雑穀の栄養素で翌朝のコンディションを高めます。',allergens:['大豆']}],
+      stamina:[{title:'鶏肉と根菜の煮物',desc:'良質なタンパク質と炭水化物でエネルギー補充。就寝中の疲労回復と体力増強をサポートします。',allergens:['鶏肉']},{title:'パスタと野菜スープ',desc:'炭水化物でグリコーゲンを補充し翌日の運動に備える。スポーツ後の夜食として最適です。',allergens:['小麦']},{title:'魚と炭水化物のバランス定食',desc:'オメガ3脂肪酸と炭水化物のベストな組み合わせ。体力増強期のリカバリー夕食です。',allergens:['魚']}],
+    }
+  };
+
+  let currentMealSuggestions = { breakfast: null, lunch: null, dinner: null };
+
+  function dedupeMeals(pool) {
+    const seen = new Set();
+    return pool.filter(item => { if (seen.has(item.title)) return false; seen.add(item.title); return true; });
+  }
+
+  // A meal is "safe" if none of its tagged allergens are in the user's
+  // selected allergy list.
+  function isMealSafe(item, userAllergens) {
+    if (!item.allergens || !item.allergens.length) return true;
+    return !item.allergens.some(a => userAllergens.includes(a));
+  }
+
+  function pickMealSuggestion(slot, goals, avoidTitle) {
+    const bank = mealData[slot];
+    const eff = goals.length ? goals : ['health'];
+    const userAllergens = (appState.profile.allergens || []).filter(a => a !== '特になし');
+
+    // 1. Prefer suggestions that match the user's goals AND are allergy-safe.
+    let pool = [];
+    eff.forEach(g => { if (bank[g]) pool.push(...bank[g]); });
+    let unique = dedupeMeals(pool);
+    let safe = unique.filter(i => isMealSafe(i, userAllergens));
+
+    // 2. If the goal-matched pool has no safe option, widen the search to
+    //    every goal category for this meal slot, still respecting allergies.
+    if (!safe.length) {
+      let allPool = [];
+      Object.values(bank).forEach(arr => allPool.push(...arr));
+      safe = dedupeMeals(allPool).filter(i => isMealSafe(i, userAllergens));
+    }
+
+    // 3. If truly nothing is safe, signal "no suggestion" rather than ever
+    //    recommending a meal containing a listed allergen.
+    if (!safe.length) return null;
+
+    const filtered = avoidTitle ? safe.filter(i => i.title !== avoidTitle) : safe;
+    const fin = filtered.length ? filtered : safe;
+    return fin[Math.floor(Math.random() * fin.length)];
+  }
+
+  function renderMealSlot(slot) {
+    const item = currentMealSuggestions[slot];
+    const titleEl = document.getElementById('meal-title-' + slot);
+    const descEl  = document.getElementById('meal-desc-' + slot);
+    if (!item) {
+      titleEl.innerText = '⚠️ 安全な提案が見つかりません';
+      descEl.innerText  = '現在の目標とアレルギー設定に合う提案がありません。アレルギー設定をご確認の上、栄養士にご相談ください。';
+      return;
+    }
+    titleEl.innerText = item.title;
+    descEl.innerText  = item.desc;
+  }
+
+  function suggestAllMeals() {
+    const goals = appState.profile.goals;
+    ['breakfast','lunch','dinner'].forEach(slot => {
+      currentMealSuggestions[slot] = pickMealSuggestion(slot, goals, null);
+      renderMealSlot(slot);
+    });
+  }
+
+  function rerollMeal(slot) {
+    const goals = appState.profile.goals;
+    const cur = currentMealSuggestions[slot];
+    currentMealSuggestions[slot] = pickMealSuggestion(slot, goals, cur ? cur.title : null);
+    renderMealSlot(slot);
+    const icon = document.getElementById('reroll-icon-' + slot);
+    icon.classList.remove('spin-once'); void icon.offsetWidth; icon.classList.add('spin-once');
+  }
+
+  /* ─────────────────────────────────────────────────
+     UI UPDATE
+  ───────────────────────────────────────────────── */
+  function updateUI() {
+    document.getElementById('header-streak').innerText = appState.today.streak;
+    const pct = Math.min(Math.round((appState.today.workoutDuration / appState.today.workoutNorm) * 100), 100);
+    document.getElementById('dash-progress-text').innerText = pct + '%';
+    document.getElementById('dash-progress-bar').style.width = pct + '%';
+    document.getElementById('dash-norm-status').innerText = '運動: ' + appState.today.workoutDuration + ' / ' + appState.today.workoutNorm + ' 分';
+    document.getElementById('dash-water-text').innerText  = appState.today.water;
+    document.getElementById('dash-sleep-text').innerText  = appState.today.sleepDuration || '未記入';
+    document.getElementById('workout-norm-val').innerText = appState.today.workoutNorm + ' 分';
+    document.getElementById('workout-done-val').innerText = appState.today.workoutDuration + ' 分';
+  }
+
+  /* ─────────────────────────────────────────────────
+     CHART
+  ───────────────────────────────────────────────── */
+  function initChart() {
+    const ctx = document.getElementById('weightChart').getContext('2d');
+    if (weightChartInstance) weightChartInstance.destroy();
+    weightChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: appState.history.dates,
+        datasets: [{ data: appState.history.weight, borderColor: '#0d9488', fill: true, backgroundColor: 'rgba(13,148,136,0.1)', tension: 0.3 }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+
+  /* ─────────────────────────────────────────────────
+     BOOT
+  ───────────────────────────────────────────────── */
+  window.onload = function () {
+    loadFromLocalStorage();
+    checkFirstLaunch();       // DEMO MODE: always shows onboarding (Day 0)
+    syncProfileForm();         // Pre-populate profile form from stored data
+    updateUI();
+    initChart();
+    applyProfileChanges();
+    suggestAllMeals();
+    analyzeMeals();
+    updateMentalTabVisibility();
+    updateWaterCardVisibility();
+    updateWorkoutCardVisibility();
+    renderGoalButtons();
+    updateWaterReminderStatus();
+    updateProfileBanner();
+    syncAllergyChipUI('prof');
+    updateAllergyBanner();
+    setInterval(updateWaterReminderStatus, 60000);
+  };
+</script>
+</body>
+</html>
