@@ -431,6 +431,36 @@
       background: #e0f2fe; border-radius: 999px; padding: 3px 10px;
       display: inline-block; margin-bottom: 8px;
     }
+
+    /* Form validation errors */
+    .field-error {
+      border-color: #f87171 !important;
+      background: #fef2f2;
+    }
+    .error-text {
+      font-size: 0.7rem;
+      color: #dc2626;
+      font-weight: 600;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .error-text.hidden { display: none; }
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      color: #b91c1c;
+      font-weight: 600;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      line-height: 1.5;
+    }
+    .error-box.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -464,7 +494,7 @@
       <div class="grid-2-gap">
         <div>
           <label class="ob-label">年齢</label>
-          <input type="number" id="ob-age" placeholder="例: 28" min="10" max="100">
+          <input type="number" id="ob-age" placeholder="例: 28" min="1" max="120" oninput="this.classList.remove('field-error'); document.getElementById('ob-step0-error').classList.add('hidden');">
         </div>
         <div>
           <label class="ob-label">性別</label>
@@ -475,6 +505,7 @@
           </select>
         </div>
       </div>
+      <p id="ob-step0-error" class="error-text hidden">⚠️ 年齢を入力してください（1〜120歳）</p>
     </div>
 
     <!-- STEP 1 – Height / Weight -->
@@ -485,13 +516,14 @@
       <div class="grid-2-gap">
         <div>
           <label class="ob-label">身長 (cm)</label>
-          <input type="number" id="ob-height" placeholder="例: 170" min="100" max="250">
+          <input type="number" id="ob-height" placeholder="例: 170" min="10" oninput="this.classList.remove('field-error'); document.getElementById('ob-step1-error').classList.add('hidden');">
         </div>
         <div>
           <label class="ob-label">体重 (kg)</label>
-          <input type="number" id="ob-weight" placeholder="例: 65" min="20" max="300">
+          <input type="number" id="ob-weight" placeholder="例: 65" min="10" oninput="this.classList.remove('field-error'); document.getElementById('ob-step1-error').classList.add('hidden');">
         </div>
       </div>
+      <p id="ob-step1-error" class="error-text hidden">⚠️ 身長と体重を入力してください（最小値は10です）</p>
     </div>
 
     <!-- STEP 2 – Allergies -->
@@ -842,7 +874,7 @@
         <div class="grid-2-gap">
           <div>
             <label class="label">年齢</label>
-            <input type="number" id="prof-age" value="28" placeholder="年齢">
+            <input type="number" id="prof-age" value="28" placeholder="年齢" min="1" max="120" oninput="this.classList.remove('field-error'); document.getElementById('profile-basic-error').classList.add('hidden');">
           </div>
           <div>
             <label class="label">性別</label>
@@ -856,13 +888,14 @@
         <div class="grid-2-gap">
           <div>
             <label class="label">身長 (cm)</label>
-            <input type="number" id="prof-height" value="170" placeholder="身長(cm)">
+            <input type="number" id="prof-height" value="170" placeholder="身長(cm)" min="10" oninput="this.classList.remove('field-error'); document.getElementById('profile-basic-error').classList.add('hidden');">
           </div>
           <div>
             <label class="label">体重 (kg)</label>
-            <input type="number" id="prof-weight" value="65" placeholder="体重(kg)">
+            <input type="number" id="prof-weight" value="65" placeholder="体重(kg)" min="10" oninput="this.classList.remove('field-error'); document.getElementById('profile-basic-error').classList.add('hidden');">
           </div>
         </div>
+        <p id="profile-basic-error" class="error-box hidden">⚠️ <span id="profile-basic-error-text">年齢・身長・体重をすべて正しく入力してください。</span></p>
 
         <div class="section-divider" style="margin-top:6px;"></div>
 
@@ -968,11 +1001,27 @@
   }
 
   function obNext() {
-    // Collect data from current step
+    // Validate current step before advancing
     if (obStep === 0) {
-      // Age + gender already in inputs; just advance
+      const ageEl = document.getElementById('ob-age');
+      const errEl = document.getElementById('ob-step0-error');
+      const age = parseFloat(ageEl.value);
+      const valid = ageEl.value.trim() !== '' && age >= 1 && age <= 120;
+      ageEl.classList.toggle('field-error', !valid);
+      errEl.classList.toggle('hidden', valid);
+      if (!valid) return;
     } else if (obStep === 1) {
-      // Height + weight; just advance
+      const heightEl = document.getElementById('ob-height');
+      const weightEl = document.getElementById('ob-weight');
+      const errEl = document.getElementById('ob-step1-error');
+      const height = parseFloat(heightEl.value);
+      const weight = parseFloat(weightEl.value);
+      const heightValid = heightEl.value.trim() !== '' && height >= 10;
+      const weightValid = weightEl.value.trim() !== '' && weight >= 10;
+      heightEl.classList.toggle('field-error', !heightValid);
+      weightEl.classList.toggle('field-error', !weightValid);
+      errEl.classList.toggle('hidden', heightValid && weightValid);
+      if (!heightValid || !weightValid) return;
     } else if (obStep === 2) {
       // Allergy; sync from chips if any
     }
@@ -1330,10 +1379,39 @@
      SAVE PROFILE (edit-anytime)
   ───────────────────────────────────────────────── */
   function saveProfile() {
-    appState.profile.age    = parseInt(document.getElementById('prof-age').value)     || appState.profile.age;
+    const ageEl    = document.getElementById('prof-age');
+    const heightEl = document.getElementById('prof-height');
+    const weightEl = document.getElementById('prof-weight');
+    const errBox   = document.getElementById('profile-basic-error');
+    const errText  = document.getElementById('profile-basic-error-text');
+
+    const age    = parseFloat(ageEl.value);
+    const height = parseFloat(heightEl.value);
+    const weight = parseFloat(weightEl.value);
+
+    const ageValid    = ageEl.value.trim()    !== '' && age    >= 1  && age    <= 120;
+    const heightValid = heightEl.value.trim() !== '' && height >= 10;
+    const weightValid = weightEl.value.trim() !== '' && weight >= 10;
+
+    ageEl.classList.toggle('field-error', !ageValid);
+    heightEl.classList.toggle('field-error', !heightValid);
+    weightEl.classList.toggle('field-error', !weightValid);
+
+    if (!ageValid || !heightValid || !weightValid) {
+      const issues = [];
+      if (!ageValid) issues.push('年齢（1〜120歳）');
+      if (!heightValid) issues.push('身長（最小値は10cmです）');
+      if (!weightValid) issues.push('体重（最小値は10kgです）');
+      errText.innerText = issues.join('、') + ' を正しく入力してください。';
+      errBox.classList.remove('hidden');
+      return;
+    }
+    errBox.classList.add('hidden');
+
+    appState.profile.age    = age;
     appState.profile.gender = document.getElementById('prof-gender').value;
-    appState.profile.height = parseFloat(document.getElementById('prof-height').value)|| appState.profile.height;
-    appState.profile.weight = parseFloat(document.getElementById('prof-weight').value)|| appState.profile.weight;
+    appState.profile.height = height;
+    appState.profile.weight = weight;
     const profAllergens = allergyChipsState.prof.filter(a => a !== '特になし');
     appState.profile.allergens = profAllergens;
     const profNote = document.getElementById('prof-allergy').value.trim();
@@ -1380,6 +1458,9 @@
     if (goals.includes('stamina')) {
       aiParts.push('【体力増加】インターバルトレーニングで心肺機能を高めましょう。');
       workoutHtml += `<div class="workout-rec workout-rec-amber">⚡ <b>インターバル走 or サーキット</b>運動と休息を交互に繰り返すと効果的。</div>`;
+    }
+    if (cond === 'bad') {
+      aiParts.push('【気分upのヒント】😰 不調とのことですね。まずは無理をしないことが一番です。5分だけ外の空気を吸う、太陽の光を浴びる、好きな音楽を1曲聴く、温かい飲み物をゆっくり飲む、信頼できる人に今の気持ちを話してみる——小さな一歩で気分が軽くなることがあります。しんどさが続く場合は、専門家や相談窓口に頼ることも大切な選択肢です。');
     }
     document.getElementById('ai-suggestion-text').innerText = aiParts.join(' ') || '目標に合わせた習慣・方法がここに表示されます。';
     document.getElementById('workout-recommendations').innerHTML = workoutHtml;
