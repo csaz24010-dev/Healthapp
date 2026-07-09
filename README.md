@@ -23,3 +23,13 @@
 
 <img width="600" height="650" alt="image" src="https://github.com/user-attachments/assets/88e0e491-89d3-4fc8-b14b-ef879684ed11" />
 
+
+
+
+
+テストケース：
+
+
+<img width="1624" height="968" alt="image" src="https://github.com/user-attachments/assets/ba36ec94-d306-40cb-a15a-f96cec97ba89" />
+
+
