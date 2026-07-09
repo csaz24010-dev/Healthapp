@@ -415,6 +415,22 @@
 
     /* Profile section divider */
     .section-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
+
+    /* Water quick-add row */
+    .water-quick-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+    .water-quick-btn {
+      border: 1px solid #bae6fd; background: #fff; color: #0369a1;
+      font-size: 0.68rem; font-weight: 700; padding: 6px 4px;
+      border-radius: 8px; cursor: pointer; font-family: inherit;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .water-quick-btn:hover { background: #e0f2fe; }
+    .water-quick-btn:active { transform: scale(0.96); }
+    .water-goal-badge {
+      font-size: 0.68rem; font-weight: 700; color: #0369a1;
+      background: #e0f2fe; border-radius: 999px; padding: 3px 10px;
+      display: inline-block; margin-bottom: 8px;
+    }
   </style>
 </head>
 <body>
@@ -575,15 +591,15 @@
 
       <div class="grid-2">
         <div class="card-sky">
-          <div id="water-input-section">
-            <span class="pill pill-sky">水分補給</span>
-            <div class="stat-big c-sky900" id="dash-water-text">0</div>
-            <div class="text-xs c-sky700" style="margin-bottom:8px;">/ 2000 ml</div>
-            <button class="btn btn-sky" onclick="addWater(250)"><svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></svg> 250ml飲む</button>
-          </div>
-          <div id="water-goal-done" class="hidden text-center" style="padding:8px 0;">
-            <span class="text-xs" style="font-weight:700;color:#0369a1;display:block;margin-bottom:4px;">🎉 目標達成！</span>
-            <button class="btn-ghost-sky" onclick="addWater(250)">さらに追加</button>
+          <span class="pill pill-sky">水分補給</span>
+          <div class="stat-big c-sky900"><span id="dash-water-text">0</span><span class="stat-unit c-sky700"> ml</span></div>
+          <div class="text-xs c-sky700" id="dash-water-sub" style="margin-bottom:6px;">目標 2000 ml まで あと 2000 ml</div>
+          <span id="water-goal-badge" class="water-goal-badge hidden">🎉 目標達成！引き続き記録できます</span>
+          <button class="btn btn-sky" onclick="addWater(250)"><svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></svg> 250ml飲む</button>
+          <div class="water-quick-row">
+            <button class="water-quick-btn" onclick="addWater(100)">+100ml</button>
+            <button class="water-quick-btn" onclick="addWater(350)">+350ml</button>
+            <button class="water-quick-btn" onclick="addWater(500)">+500ml</button>
           </div>
         </div>
         <div class="card-indigo">
@@ -791,10 +807,17 @@
           <input type="checkbox" id="water-remind-toggle" checked onchange="updateWaterReminderStatus()">
         </div>
         <p id="water-remind-status" class="note">就寝〜起床の時間帯（上の設定に連動）は自動でオフになります。</p>
+        <div class="row-between" style="font-size:0.75rem;color:#0369a1;font-weight:700;">
+          <span>現在の摂取量</span><span id="sleep-tab-water-text">0 ml</span>
+        </div>
         <div class="grid-3-gap">
           <button class="btn-border" onclick="addWater(100)">100ml 🥛</button>
           <button class="btn-border" onclick="addWater(350)">350ml ☕</button>
           <button class="btn-border" onclick="addWater(500)">500ml 🫙</button>
+        </div>
+        <div class="row-gap">
+          <input type="number" id="water-custom-input" placeholder="任意のml数を入力" style="flex:1;" min="1">
+          <button class="btn btn-sky" style="width:auto;white-space:nowrap;" onclick="addCustomWater()">追加</button>
         </div>
       </div>
     </div><!-- /sleep -->
@@ -914,6 +937,7 @@
     today: { meals: [], water: 0, sleepDuration: 0, workoutDuration: 0, workoutNorm: 30, condition: 'normal', conditionLoggedDate: null, streak: 0 },
     history: { dates: ['今日'], weight: [65] }
   };
+  const WATER_GOAL = 2000;
   let weightChartInstance = null;
 
   /* ─────────────────────────────────────────────────
@@ -1130,17 +1154,41 @@
   /* ─────────────────────────────────────────────────
      WATER / SLEEP / WORKOUT
   ───────────────────────────────────────────────── */
-  function addWater(amount) { appState.today.water += amount; saveToLocalStorage(); updateUI(); updateWaterCardVisibility(); }
+  function addWater(amount) {
+    appState.today.water += amount;
+    saveToLocalStorage();
+    updateUI();
+    updateWaterCardVisibility();
+  }
+
+  function addCustomWater() {
+    const input = document.getElementById('water-custom-input');
+    const amount = parseInt(input.value);
+    if (amount > 0) {
+      addWater(amount);
+      input.value = '';
+    }
+  }
 
   function logSleep() {
     const h = parseFloat(document.getElementById('sleep-duration-input').value);
     if (h > 0) { appState.today.sleepDuration = h; saveToLocalStorage(); updateUI(); }
   }
 
+  // Water can always be logged, even after the daily goal is reached.
+  // This just toggles the "goal achieved" badge and keeps the running
+  // total (and remaining-to-goal text) up to date.
   function updateWaterCardVisibility() {
-    const show = appState.today.water >= 2000;
-    document.getElementById('water-input-section').classList.toggle('hidden', show);
-    document.getElementById('water-goal-done').classList.toggle('hidden', !show);
+    const water = appState.today.water;
+    const reached = water >= WATER_GOAL;
+    document.getElementById('water-goal-badge').classList.toggle('hidden', !reached);
+    const subEl = document.getElementById('dash-water-sub');
+    if (reached) {
+      const over = water - WATER_GOAL;
+      subEl.innerText = over > 0 ? ('目標達成（+' + over + ' ml）') : '目標達成！';
+    } else {
+      subEl.innerText = '目標 ' + WATER_GOAL + ' ml まで あと ' + (WATER_GOAL - water) + ' ml';
+    }
   }
 
   function toggleWeightChart() {
@@ -1447,6 +1495,7 @@
     document.getElementById('dash-progress-bar').style.width = pct + '%';
     document.getElementById('dash-norm-status').innerText = '運動: ' + appState.today.workoutDuration + ' / ' + appState.today.workoutNorm + ' 分';
     document.getElementById('dash-water-text').innerText  = appState.today.water;
+    document.getElementById('sleep-tab-water-text').innerText = appState.today.water + ' ml';
     document.getElementById('dash-sleep-text').innerText  = appState.today.sleepDuration || '未記入';
     document.getElementById('workout-norm-val').innerText = appState.today.workoutNorm + ' 分';
     document.getElementById('workout-done-val').innerText = appState.today.workoutDuration + ' 分';
