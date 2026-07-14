@@ -466,7 +466,7 @@
 <body>
 
 <!-- ═══════════════════════════════════════════════
-     ONBOARDING OVERLAY (Day 0 demo: always shown on load)
+     ONBOARDING OVERLAY (shown only on first launch)
 ═══════════════════════════════════════════════ -->
 <div id="onboarding-overlay" class="ob-overlay ob-hidden">
   <div class="ob-card">
@@ -936,6 +936,28 @@
 
         <button class="btn btn-dark" onclick="saveProfile()">保存してAI提案を最適化</button>
       </div>
+
+      <div class="card col-gap" style="border-color:#fecaca;">
+        <div class="section-title" style="color:#b91c1c;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/></svg>
+          データ管理
+        </div>
+        <p class="text-xs c-slate600" style="line-height:1.6;">プロフィール・毎日の記録・体重推移など、保存されているすべてのデータを完全に削除して初期状態（工場出荷状態）に戻します。この操作は元に戻せません。</p>
+
+        <div id="reset-step-1">
+          <button class="btn" style="background:#dc2626;color:#fff;width:100%;" onclick="requestFactoryReset()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/></svg>
+            工場出荷状態にリセット
+          </button>
+        </div>
+        <div id="reset-step-2" class="col-gap hidden">
+          <p class="error-box" style="margin:0;">⚠️ 本当によろしいですか？この操作は元に戻せません。もう一度ボタンを押すと、すべてのデータが削除されます。</p>
+          <div class="grid-2-gap">
+            <button class="btn" style="background:#f1f5f9;color:#334155;" onclick="cancelFactoryReset()">キャンセル</button>
+            <button class="btn" style="background:#dc2626;color:#fff;" onclick="confirmFactoryReset()">はい、削除する</button>
+          </div>
+        </div>
+      </div>
     </div><!-- /profile -->
 
   </main>
@@ -967,21 +989,171 @@
   ───────────────────────────────────────────────── */
   let appState = {
     profile: { age: 28, gender: 'male', height: 170, weight: 65, allergy: '特になし', allergens: [], goals: [] },
-    today: { meals: [], water: 0, sleepDuration: 0, workoutDuration: 0, workoutNorm: 30, condition: 'normal', conditionLoggedDate: null, streak: 0 },
+    today: { date: null, meals: [], water: 0, sleepDuration: 0, workoutDuration: 0, workoutNorm: 30, condition: 'normal', conditionLoggedDate: null, streak: 0 },
     history: { dates: ['今日'], weight: [65] }
   };
   const WATER_GOAL = 2000;
   let weightChartInstance = null;
 
   /* ─────────────────────────────────────────────────
-     STORAGE (DEMO MODE)
-     NOTE: Browser localStorage is not supported inside
-     Claude artifacts, so persistence is in-memory only
-     for this session. State resets on reload — which is
-     exactly what we want for a "Day 0" demo.
+     STORAGE (PERSISTENT)
+     Uses the browser's standard localStorage, so this
+     file works as a normal, standalone .html page saved
+     and opened directly in any browser (double-click, or
+     open via File > Open). Data persists per-browser /
+     per-device, the same way any other local web app's
+     saved data would.
+
+     Layout (all keys prefixed to avoid collisions):
+       'healthapp_v1_profile'         → { age, gender, height, weight, allergy, allergens, goals, ... }
+       'healthapp_v1_weight-history'  → { dates: [...], weight: [...] }
+       'healthapp_v1_day:YYYY-M-D'    → { date, meals, water, sleepDuration, workoutDuration,
+                                           workoutNorm, condition, conditionLoggedDate, streak,
+                                           mealSuggestions }
   ───────────────────────────────────────────────── */
-  function saveToLocalStorage() { /* demo mode: in-memory only, no-op */ }
-  function loadFromLocalStorage() { /* demo mode: in-memory only, no-op */ }
+  const STORAGE_PREFIX = 'healthapp_v1_';
+  const PROFILE_KEY = STORAGE_PREFIX + 'profile';
+  const HISTORY_KEY = STORAGE_PREFIX + 'weight-history';
+
+  // localStorage can throw (private/incognito mode with storage disabled,
+  // or the page opened via file:// in a browser that blocks it). Guard
+  // every access so the app degrades to in-memory-only instead of crashing.
+  function hasStorage() {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    try {
+      const testKey = STORAGE_PREFIX + '__test__';
+      window.localStorage.setItem(testKey, '1');
+      window.localStorage.removeItem(testKey);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function dayKeyFor(date) {
+    return date.getFullYear() + '-' + (date.getMonth() + 1) + '-' + date.getDate();
+  }
+  function todayDateKey() { return dayKeyFor(new Date()); }
+  function yesterdayDateKey() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return dayKeyFor(d);
+  }
+
+  async function saveProfileToStorage() {
+    if (!hasStorage()) return;
+    try { window.localStorage.setItem(PROFILE_KEY, JSON.stringify(appState.profile)); }
+    catch (e) { console.error('プロフィールの保存に失敗しました', e); }
+  }
+
+  async function saveHistoryToStorage() {
+    if (!hasStorage()) return;
+    try { window.localStorage.setItem(HISTORY_KEY, JSON.stringify(appState.history)); }
+    catch (e) { console.error('体重推移の保存に失敗しました', e); }
+  }
+
+  async function saveTodayToStorage() {
+    if (!hasStorage() || !appState.today.date) return;
+    try {
+      const payload = Object.assign({}, appState.today, { mealSuggestions: currentMealSuggestions });
+      window.localStorage.setItem(STORAGE_PREFIX + 'day:' + appState.today.date, JSON.stringify(payload));
+    } catch (e) { console.error('今日の記録の保存に失敗しました', e); }
+  }
+
+  // Fire-and-forget save of everything. Kept under the old function name so
+  // every existing call site in the app continues to work unchanged.
+  function saveToLocalStorage() {
+    saveProfileToStorage();
+    saveHistoryToStorage();
+    saveTodayToStorage();
+  }
+
+  async function loadProfileFromStorage() {
+    if (!hasStorage()) return false;
+    try {
+      const raw = window.localStorage.getItem(PROFILE_KEY);
+      if (raw) {
+        appState.profile = Object.assign({}, appState.profile, JSON.parse(raw));
+        return true;
+      }
+    } catch (e) { /* corrupted or missing → treat as first launch */ }
+    return false;
+  }
+
+  async function loadHistoryFromStorage() {
+    if (!hasStorage()) return false;
+    try {
+      const raw = window.localStorage.getItem(HISTORY_KEY);
+      if (raw) { appState.history = JSON.parse(raw); return true; }
+    } catch (e) { /* not found */ }
+    return false;
+  }
+
+  async function loadDayFromStorage(dateKey) {
+    if (!hasStorage()) return null;
+    try {
+      const raw = window.localStorage.getItem(STORAGE_PREFIX + 'day:' + dateKey);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* not found */ }
+    return null;
+  }
+
+  // Kept for backward compatibility; real loading now happens in initApp().
+  function loadFromLocalStorage() { /* handled by initApp() */ }
+
+  // Builds a brand-new "today" record, carrying forward workout norm and
+  // computing a streak based on whether yesterday's workout goal was met.
+  function buildFreshDay(dateKey, previousDay) {
+    let streak = 0;
+    if (previousDay) {
+      const metGoal = previousDay.workoutDuration >= previousDay.workoutNorm;
+      streak = metGoal ? (previousDay.streak || 0) + 1 : 0;
+    }
+    return {
+      date: dateKey,
+      meals: [],
+      water: 0,
+      sleepDuration: 0,
+      workoutDuration: 0,
+      workoutNorm: (previousDay && previousDay.workoutNorm) || appState.today.workoutNorm || 30,
+      condition: 'normal',
+      conditionLoggedDate: null,
+      streak: streak
+    };
+  }
+
+  // Refreshes every part of the UI that depends on appState.today / appState.history.
+  function refreshDayDependentUI() {
+    updateUI();
+    initChart();
+    applyProfileChanges();
+    suggestAllMeals();
+    analyzeMeals();
+    updateMentalTabVisibility();
+    updateWaterCardVisibility();
+    updateWorkoutCardVisibility();
+  }
+
+  // Called periodically. If the real-world date has moved on since the app
+  // was opened (e.g. it was left open past midnight), archive yesterday's
+  // data and start a fresh entry sheet for the new day.
+  async function checkDateRollover() {
+    const cur = todayDateKey();
+    if (!appState.today.date || cur === appState.today.date) return;
+    await saveTodayToStorage(); // archive the day that just ended
+    const existing = await loadDayFromStorage(cur);
+    if (existing) {
+      appState.today = existing;
+      currentMealSuggestions = existing.mealSuggestions || { breakfast: null, lunch: null, dinner: null };
+    } else {
+      const previousDay = appState.today;
+      appState.today = buildFreshDay(cur, previousDay);
+      currentMealSuggestions = { breakfast: null, lunch: null, dinner: null };
+      appState.history.dates.push(cur);
+      appState.history.weight.push(appState.profile.weight);
+      await saveHistoryToStorage();
+      await saveTodayToStorage();
+    }
+    refreshDayDependentUI();
+  }
 
   /* ─────────────────────────────────────────────────
      ONBOARDING
@@ -993,12 +1165,6 @@
   // and the profile tab ('prof'). Values are canonical allergen tags that
   // are matched directly against each meal's `allergens` list.
   let allergyChipsState = { ob: ['特になし'], prof: ['特になし'] };
-
-  function checkFirstLaunch() {
-    // DEMO MODE: always start at Day 0, so onboarding always shows.
-    document.getElementById('onboarding-overlay').classList.remove('ob-hidden');
-    syncAllergyChipUI('ob');
-  }
 
   function obNext() {
     // Validate current step before advancing
@@ -1141,6 +1307,8 @@
     const obNote = document.getElementById('ob-allergy').value.trim();
     appState.profile.allergy = obAllergens.length ? obAllergens.join('、') + (obNote ? '（' + obNote + '）' : '') : (obNote || '特になし');
     appState.profile.goals  = obGoals.length ? obGoals : ['health'];
+    appState.today.date = todayDateKey();
+    appState.history.dates = [appState.today.date];
     appState.history.weight = [appState.profile.weight];
 
     // Carry the same allergy selections over to the profile tab's chips.
@@ -1197,7 +1365,7 @@
     document.getElementById('tab-' + name).classList.add('active');
     document.getElementById('nav-' + name).classList.add('active');
     if (name === 'dashboard' && weightChartInstance) setTimeout(() => weightChartInstance.update(), 100);
-    if (name === 'profile') { updateProfileBanner(); syncAllergyChipUI('prof'); }
+    if (name === 'profile') { updateProfileBanner(); syncAllergyChipUI('prof'); cancelFactoryReset(); }
   }
 
   /* ─────────────────────────────────────────────────
@@ -1307,7 +1475,7 @@
   /* ─────────────────────────────────────────────────
      CONDITION
   ───────────────────────────────────────────────── */
-  function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); }
+  function todayKey() { return appState.today.date || todayDateKey(); }
   const conditionEmoji = { good:'😊 絶好調', normal:'😐 普通', tired:'🥱 疲労', bad:'😰 不調' };
 
   function setCondition(c) {
@@ -1432,6 +1600,38 @@
     if (!el) return;
     const list = (appState.profile.allergens || []).filter(a => a !== '特になし');
     el.innerText = list.length ? list.join('、') : '特になし';
+  }
+
+  /* ─────────────────────────────────────────────────
+     FACTORY RESET
+  ───────────────────────────────────────────────── */
+  // Native confirm()/alert() dialogs are blocked or silently ignored in
+  // some sandboxed/embedded browser contexts, which makes a plain
+  // confirm()-guarded reset appear to "do nothing" when clicked. Using an
+  // in-page two-step confirmation instead guarantees the button always
+  // visibly responds.
+  function requestFactoryReset() {
+    document.getElementById('reset-step-1').classList.add('hidden');
+    document.getElementById('reset-step-2').classList.remove('hidden');
+  }
+
+  function cancelFactoryReset() {
+    document.getElementById('reset-step-2').classList.add('hidden');
+    document.getElementById('reset-step-1').classList.remove('hidden');
+  }
+
+  async function confirmFactoryReset() {
+    if (hasStorage()) {
+      try {
+        const toRemove = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.indexOf(STORAGE_PREFIX) === 0) toRemove.push(k);
+        }
+        toRemove.forEach(k => { try { window.localStorage.removeItem(k); } catch (e) { /* ignore individual failures */ } });
+      } catch (e) { console.error('リセット処理中にエラーが発生しました', e); }
+    }
+    location.reload();
   }
 
   /* ─────────────────────────────────────────────────
@@ -1601,9 +1801,45 @@
   /* ─────────────────────────────────────────────────
      BOOT
   ───────────────────────────────────────────────── */
-  window.onload = function () {
-    loadFromLocalStorage();
-    checkFirstLaunch();       // DEMO MODE: always shows onboarding (Day 0)
+  async function initApp() {
+    const hasProfile = await loadProfileFromStorage();
+    await loadHistoryFromStorage();
+
+    const today = todayDateKey();
+    const existingToday = await loadDayFromStorage(today);
+
+    if (existingToday) {
+      // Returning on the same day — restore exactly where the user left off.
+      appState.today = existingToday;
+      currentMealSuggestions = existingToday.mealSuggestions || { breakfast: null, lunch: null, dinner: null };
+    } else if (hasProfile) {
+      // A returning user, but a new day — start a fresh entry sheet while
+      // keeping their profile, and add a new point to the weight history.
+      const previousDay = await loadDayFromStorage(yesterdayDateKey());
+      appState.today = buildFreshDay(today, previousDay);
+      currentMealSuggestions = { breakfast: null, lunch: null, dinner: null };
+      if (!appState.history.dates || !appState.history.dates.length) {
+        appState.history = { dates: [today], weight: [appState.profile.weight] };
+      } else if (appState.history.dates[appState.history.dates.length - 1] !== today) {
+        appState.history.dates.push(today);
+        appState.history.weight.push(appState.profile.weight);
+      }
+      await saveHistoryToStorage();
+      await saveTodayToStorage();
+    } else {
+      // Brand-new user — today's date will be set once onboarding completes.
+      appState.today.date = today;
+    }
+
+    // Show onboarding only the very first time (no saved profile yet).
+    const overlay = document.getElementById('onboarding-overlay');
+    if (!hasProfile) {
+      overlay.classList.remove('ob-hidden');
+      syncAllergyChipUI('ob');
+    } else {
+      overlay.classList.add('ob-hidden');
+    }
+
     syncProfileForm();         // Pre-populate profile form from stored data
     updateUI();
     initChart();
@@ -1618,8 +1854,12 @@
     updateProfileBanner();
     syncAllergyChipUI('prof');
     updateAllergyBanner();
+
     setInterval(updateWaterReminderStatus, 60000);
-  };
+    setInterval(checkDateRollover, 60000); // detect the calendar day changing while the app stays open
+  }
+
+  window.onload = function () { initApp(); };
 </script>
 </body>
 </html>
